@@ -41,7 +41,7 @@ Tested in Viya 4, Stable 2023.09
 
 Note that ALL table elements identified in the document will be extracted as a single call. You may choose to filter tables to keep downstream.
 
-#### Output specifications:
+### Output specifications:
 
 1. Select output table destination (drop-down list, SAS Dataset is the default): choose between outputting your table extracts to SAS datasets or JSON files as per your desired process
 
@@ -52,12 +52,12 @@ Note that ALL table elements identified in the document will be extracted as a s
 
 3. JSON file (file selector, optional): in case you've selected JSON as the output destination, provide a valid path to a JSON file which will hold the results of the extracts.
 
-#### Configuration (tab)
+### Configuration (tab)
 1. Path to a file containing your Document Intelligence key (file selector, required): save your key in a secure location (i.e. accessible only to designated persons) and provide this path 
 
 2. Azure Document Intelligence endpoint (text field, required): refer to the Microsoft Azure resource you had created to obtain this value
 
-#### Run-time control
+## Run-time control
 
 **Note that this is optional.**  In some scenarios, you may wish to dynamically control whether this custom step runs or simply "passes through" without doing anything, in a SAS Studio session. The following macro variable is set to initialize with a value of 1 by default, indicating an "enabled" status and allowing the custom step to run.
 
