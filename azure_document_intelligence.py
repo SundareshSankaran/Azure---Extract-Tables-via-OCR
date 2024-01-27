@@ -25,11 +25,11 @@ ocr_endpoint = os.getenv('OCR_ENDPOINT')
 # general
 ocr_type = 'table'                  # type of OCR: text, form, query, tabel
 input_type = 'file'                 # type of input: file, url
-input_mode = 'single'                # single or batch
+input_mode = 'single'               # single or batch
 file_path = 'data/table-test-document.pdf'                      # path to a (single) file
 file_list = ''                      # dataframe containing the file names
 path_column = ''                    # column that contains the file path
-locale = 'en-US'                    # optional, language of the document
+locale = 'en-US'                    # optional, language of the document [TODO]
 
 n_con_retry = 3                     # number of retries if connection fails
 retry_delay = 2                     # delay between retries
