@@ -1,17 +1,23 @@
 # Imports
-from azure.core.credentials import AzureKeyCredential
-from azure.ai.documentintelligence import DocumentIntelligenceClient
-from azure.ai.documentintelligence.models import DocumentAnalysisFeature
-from azure.ai.documentintelligence.models._models import AnalyzeResult
+try:
+    from azure.core.credentials import AzureKeyCredential
+    from azure.ai.documentintelligence import DocumentIntelligenceClient
+    from azure.ai.documentintelligence.models import DocumentAnalysisFeature
+    from azure.ai.documentintelligence.models._models import AnalyzeResult
 
-import pandas as pd
-import functools
-import json
-import io
-import re
-import os
-import uuid
-from datetime import datetime
+    import pandas as pd
+    import numpy as np
+    import functools
+    import threading
+    import json
+    import io
+    import re
+    import os
+    import uuid
+    from datetime import datetime
+except ImportError as e:
+    print(f'ImportError - {e}. Please install the required packages!')
+    exit()
 
 # only for development
 from dotenv import load_dotenv
@@ -19,38 +25,43 @@ load_dotenv()
 
 ################### DEFINE PARAMETERS ###################
 # azure credentials
-ocr_key = os.getenv('OCR_KEY')
-ocr_endpoint = os.getenv('OCR_ENDPOINT')
+ocr_key = str(os.getenv('OCR_KEY'))
+ocr_endpoint = str(os.getenv('OCR_ENDPOINT'))
+
+API_VERSION = '2023-10-31-preview'  # default: '2023-10-31-preview'- to lock the API version, in case breaking changes are introduced
 
 # general
-ocr_type = 'table'                  # type of OCR: text, form, query, tabel
-input_type = 'file'                 # type of input: file, url
-input_mode = 'single'               # single or batch
-file_path = 'data/table-test-document.pdf'                      # path to a (single) file
-file_list = ''                      # dataframe containing the file names
-path_column = ''                    # column that contains the file path
-locale = 'en-US'                    # optional, language of the document [TODO]
+ocr_type = str('text')                   # type of OCR: text, form, query, tabel
+input_type = str('file')                 # type of input: file, url (only file supported for now)
+input_mode = str('batch')                # single or batch
+file_path = str('data/table-test-document.pdf')                      # path to a (single) file
+input_table_name = None                  # name of table containing the file paths
+path_column = str('')                    # column that contains the file path
+locale = str('en-US')                    # optional, language of the document [ToDo]
 
-n_con_retry = 3                     # number of retries if connection fails
-retry_delay = 2                     # delay between retries
+n_threads = int(32)                      # number of threads to use for parallel processing
+n_con_retry = int(3)                     # number of retries if connection fails
+retry_delay = int(2)                     # delay between retries
+output_status_table = bool(1)            # whether to output the status table
 
-save_file = True                    # whether to save the json output
-output_folder = 'output'            # folder to save the json output  
+save_file = bool(True)                   # whether to save the json output
+output_folder = str('output')            # folder to save the json output
+
 
 # for text extraction
-lod = 'line'                        # level of detail: word, line, paragraph, page
-model_id = 'prebuilt-read'          # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
+lod = str('word')                        # level of detail: word, line, paragraph, page
+model_id = str('prebuilt-read')          # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
 
 # for query extraction
-query_fields = "City, First name, last name"               # string containing comma separated keys to extract
-exclude_metadata = True            # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
+query_fields = str("City, First name, last name")               # string containing comma separated keys to extract
+exclude_metadata = bool(True)            # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
 
 # for table extraction
-table_output_format = 'reference'  # how the tables should be returned: map, reference*, table** *reference requires a caslib, **only one table per execution is supported
-table_output_caslib = 'work'       # caslib to store the table (only relevant if table_output_format = 'reference')
-select_table = False               # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
-tabel_selection_method = 'index'   # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
-table_idx = 0                      # index of the table to extract (only relevant if table_output_format = 'table')
+table_output_format = str('map')  # how the tables should be returned: map, reference*, table** *reference requires a caslib, **only one table per execution is supported
+table_output_caslib = str('work')       # caslib to store the table (only relevant if table_output_format = 'reference')
+select_table = bool(False)               # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
+tabel_selection_method = str('index')   # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
+table_idx = int(0)                      # index of the table to extract (only relevant if table_output_format = 'table')
 
 ##################### HELPER FUNCTIONS #####################
 def retry_on_endpoint_connection_error(max_retries=3, delay=2):
@@ -58,11 +69,15 @@ def retry_on_endpoint_connection_error(max_retries=3, delay=2):
     This is a decorator function that allows a function to retry execution when an EndpointConnectionError occurs.
 
     Parameters:
-    max_retries (int): The maximum number of retries if an EndpointConnectionError occurs. Default is 3.
-    delay (int): The delay (in seconds) between retries. Default is 2.
+    -----------
+    max_retries (int): 
+        The maximum number of retries if an EndpointConnectionError occurs. Default is 3.
+    delay (int): 
+        The delay (in seconds) between retries. Default is 2.
 
     Returns:
-    wrapper function: The decorated function that includes retry logic.
+    wrapper function: 
+        The decorated function that includes retry logic.
     """
     def decorator(func):
         @functools.wraps(func)
@@ -86,6 +101,18 @@ def retry_on_endpoint_connection_error(max_retries=3, delay=2):
     return decorator
 
 def prepare_query(query_list: str):
+    """ Parse the query string to a list of query keys
+
+    Parameters:
+    -----------
+    query_list:
+        str: comma separated string of queries
+    
+    Returns:
+    --------
+    query_list:
+        list(str): list of queries
+    """
     query_list = query_list.split(',')
     query_list = [q.strip() for q in query_list] # remove leading and trailing whitespace
     query_list = [q.replace(' ', '_') if ' ' in q else q for q in query_list] # replace spaces with underscores
@@ -96,7 +123,7 @@ def prepare_query(query_list: str):
         try:
             re.compile(q)
         except re.error:
-            raise re.error
+            ValueError(f'Query string {q} is not regex compatible!')
         
     return query_list
 
@@ -124,6 +151,7 @@ class ExtractText(OCRStrategy):
         self.model_id = kwargs.get('model_id', 'prebuilt-read')
 
     def parse_ocr_result(self, result) -> pd.DataFrame:
+
         # azure doesn't provide results on page level natively
         level = self.lod
         if (level.upper() == "PAGE"):
@@ -245,6 +273,11 @@ class ExtractText(OCRStrategy):
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
     def analyze_document(self, document) -> AnalyzeResult:
         """ Analyze the document and return the result
+
+        Parameters:
+        -----------
+        document:
+            io.BytesIO|str: document to analyze
         
         Returns:
         --------
@@ -570,9 +603,32 @@ class OCRProcessor:
         self.strategy = strategy_class(ocr_client = self.ocr_client, kwargs = self.kwargs)
 
     def analyze_document(self, document:io.BytesIO|str) -> AnalyzeResult:
+        """ Analyze the document and return the result
+        
+        Parameters:
+        -----------
+        document:
+            io.BytesIO|str: document to analyze
+            
+        Returns:
+        --------
+        result:
+            AnalyzeResult: OCR results"""
         return self.strategy.analyze_document(document)
     
     def parse_ocr_result(self, result:AnalyzeResult) -> pd.DataFrame:
+        """ Parse the OCR result and return the result
+
+        Parameters:
+        -----------
+        result:
+            AnalyzeResult: OCR results
+
+        Returns:
+        --------
+        parsed_result:
+            pd.DataFrame: parsed OCR results
+        """
         return self.strategy.parse_ocr_result(result)
     
 ###################### TEST DATA (FOR DEV) ######################
@@ -588,11 +644,45 @@ tabel_data = {'file_path': ['data/table-test-document.pdf'],
 file_list = pd.DataFrame(tabel_data)
 path_column = 'file_path'
 
-###################### PREP & PRE-CHECKS ######################
-if ocr_type.upper() == 'QUERY': # prepare the query string to the right format
-    query_fields = prepare_query(query_fields)
-    print(f'query list: {query_fields}')
+# create a dataframe with all the file paths of a specified folder not as method yet
+def get_file_list(folder_path):
+    file_list = []
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            file_list.append(os.path.join(root, file))
+    
+    # filter out all non-pdf and images
+    file_list = [file for file in file_list if file.endswith(('.pdf', '.jpg', '.jpeg', '.png'))]
+    return pd.DataFrame({'file_path': file_list})
 
+file_list = get_file_list('data')
+print(f'numer of files: {file_list.shape[0]}')
+
+###################### PREP & PRE-CHECKS ######################
+
+if input_mode == 'batch' and input_type == 'file': # When input_mode = 'batch' and input_type = 'file
+	#file_list = SAS.sd2df(input_table_name)
+    pass
+else:
+	file_list = ''
+
+if input_mode == 'single':  # When input type is 'file'
+	try:
+		ocr_document_path = file_path.split(':', 1)[1]
+	except Exception as e:
+		#SAS.logMessage("Please select a valid path. Files have to be located on SAS Server (not SAS Content)!", 'error')
+		exit()
+
+if ocr_type.upper() == 'QUERY': # prepare the query string to the right format
+    try:
+        query_fields = prepare_query(query_fields)
+    except ValueError as e:
+        print(f'REGEX ERROR: {e}')
+        exit()
+    except Exception as e:
+        print(f'ERROR: {e}')
+        exit()
+    
 if save_file: # check if output folder should be created (if save_file = True)
     # check if output folder exists
     if not os.path.exists(output_folder):
@@ -600,14 +690,17 @@ if save_file: # check if output folder should be created (if save_file = True)
             os.makedirs(output_folder)
             print(f'Created output folder {output_folder}!')
         except OSError as e:
-            raise OSError(f'Could not create output folder {output_folder}!')
+            raise OSError(f'OSError - Could not create output folder {output_folder}!')
+            exit()
     
     # check if output folder is writable
     if not os.access(output_folder, os.W_OK):
-        raise OSError(f'Output folder {output_folder} is not writable!')
+        raise OSError(f'OSError - Output folder {output_folder} is not writable!')
+        exit()
 
 if table_output_format.upper() == 'TABLE' and file_list.shape[0] > 1: # if table_output_format = 'table', check if only one row in the file_list
-    raise Exception('Only one file is supported if table_output_format = "table"!')
+    raise ValueError('Only one file is supported if table_output_format = "table"!')
+    exit()
 
 if input_mode.upper() == 'SINGLE': # if input_mode = 'single', create a dataframe with the file path
     file_list = pd.DataFrame({'file_path': [file_path]})
@@ -632,10 +725,14 @@ ocr_params = {
               'table_output_caslib': table_output_caslib,
               }
 
+# initiate dataframe to store results and status
+ocr_results = pd.DataFrame()
+status = pd.DataFrame()
+
 # initiate the OCR client and processor
 ocr_client = DocumentIntelligenceClient(endpoint = ocr_endpoint, 
                                         credential = AzureKeyCredential(ocr_key),
-                                        api_version='2023-10-31-preview'
+                                        api_version = API_VERSION
                                         )
 
 ocr_processor = OCRProcessor(ocr_client = ocr_client, 
@@ -643,64 +740,103 @@ ocr_processor = OCRProcessor(ocr_client = ocr_client,
                              **ocr_params
                              )
 
-# initiate dataframe to store results and status
-ocr_results = pd.DataFrame()
-status = pd.DataFrame()
+def process_files(file_list, ocr_processor, path_column):
+    """ Process the files in the file_list using the ocr_processor
 
-# go through every document in the list
-for _, row in file_list.iterrows():
-    print(f'processing file {row[path_column]}')
-    done = False
-    error_type = ''
-    message = ''
-    start = datetime.now()
+    Parameters:
+    -----------
+    file_list:
+        pd.DataFrame: dataframe containing the file paths
+    ocr_processor:
+        OCRProcessor: OCR processor
+    path_column:
+        str: column that contains the file path
+    """
+    # go through every document in the list
+    global ocr_results, status
 
-    # perform the OCR
-    with open(row[path_column], 'rb') as document:
-        document = io.BytesIO(document.read())
-    try:
-        # analyze the document
-        result = ocr_processor.analyze_document(document = document)
+    for _, row in file_list.iterrows():
+        print(f'processing file {row[path_column]}')
+        done = False
+        n_rows = 0
+        error_type = ''
+        message = ''
+        start = datetime.now()
 
-        # parse the result
-        parsed_result = ocr_processor.parse_ocr_result(result = result)
+        # perform the OCR
+        with open(row[path_column], 'rb') as document:
+            document = io.BytesIO(document.read())
+        try:
+            # analyze the document
+            result = ocr_processor.analyze_document(document = document)
 
-        # append results to the dataframe
-        ocr_results = pd.concat([ocr_results, parsed_result], ignore_index=True)
-        ocr_results[path_column]=row[path_column]
-        done = True
-    except Exception as e:
-        error_type = type(e).__name__
-        message = str(e)
-        print(f'Error: {error_type} - {message}')
-        raise e
-    
-    # Post processing
-    if table_output_format.upper() == 'TABLE': # if output_table_format = 'table', drop the path_column
-        ocr_results.drop(columns=[path_column], inplace=True)
-    if save_file: # if save_file = True, save the azure ocr result as json
-        # save the result as json
-        try: 
-            with open(f'{output_folder}/{row[path_column].split("/")[-1].split(".")[0]}_{ocr_type}.json', 'w') as f:
-                json.dump(result.as_dict(), f)
+            # parse the result to a dataframe
+            parsed_result = ocr_processor.parse_ocr_result(result = result)
+
+            # append results to the dataframe
+            if not parsed_result.empty:
+                ocr_results = pd.concat([ocr_results, parsed_result], ignore_index=True)
+                ocr_results[path_column]=row[path_column]
+                n_rows = parsed_result.shape[0]
+
+            done = True
         except Exception as e:
             error_type = type(e).__name__
             message = str(e)
-            print(f'Error: {error_type} - {message}')
+            print(f'Warning: {error_type} - {message} - for {row[path_column]}')
+        
+        # Post processing
+        if table_output_format.upper() == 'TABLE': # if output_table_format = 'table', drop the path_column
+            ocr_results.drop(columns=[path_column], inplace=True)
 
-    # update the status
-    doc_status = {'file': row[path_column],
-                  'done': done,
-                  'error_type': error_type,
-                  'message': message,
-                  'start': start,
-                  'end': datetime.now(),
-                  'duration_seconds': round((datetime.now() - start).total_seconds(), 3)
-                  }
-    status = pd.concat([status, pd.DataFrame(doc_status, index=[0])], ignore_index=True)
+        if save_file: # if save_file = True, save the azure ocr result as json
+            # save the result as json
+            try: 
+                with open(f'{output_folder}/{row[path_column].split("/")[-1].split(".")[0]}_{ocr_type}.json', 'w') as f:
+                    json.dump(result.as_dict(), f)
+            except Exception as e:
+                error_type = type(e).__name__
+                message = str(e)
+                print(f'Warning: {error_type} - {message} for {row[path_column]}')
+
+        # update the status
+        doc_status = {'file': row[path_column],
+                    'done': done,
+                    'num_rows': n_rows,
+                    'error_type': error_type,
+                    'message': message,
+                    'start': start,
+                    'end': datetime.now(),
+                    'duration_seconds': round((datetime.now() - start).total_seconds(), 3)
+                    }
+        status = pd.concat([status, pd.DataFrame(doc_status, index=[0])], ignore_index=True)
+
+# Parallel processing of the files
+df_split = np.array_split(file_list, n_threads)
+threads = []
+for i in range(n_threads):
+    paths = df_split[i]
+    thread = threading.Thread(target=process_files, args=(paths, ocr_processor, path_column))
+    threads.append(thread)
+    thread.start()
+
+    print(f'INFO - Started thread {i+1} of {n_threads}!')
+
+# Wait for all threads to complete
+for index, thread in enumerate(threads):
+    thread.join()
+    print(f'INFO - Thread {index+1} of {n_threads} completed!')
+
+print(f'FINISHED - Successfully processed {status["done"].sum()} / {status.shape[0]} files!')
+
+# Output the results
+#SAS.df2sd(ocr_results, SAS.symget("_output1"))
+if output_status_table:
+    #SAS.df2sd(status, SAS.symget("_output2"))
+    pass
+
 
 # print & save the results (dev only)
-print(f'Successfully processed {status["done"].sum()} / {status.shape[0]} files!')
 ocr_results.to_csv('ocr_results.csv')
 status.to_csv('ocr_status.csv')
 
