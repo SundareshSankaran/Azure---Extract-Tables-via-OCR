@@ -1,14 +1,19 @@
 # Imports
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.documentintelligence import DocumentIntelligenceClient
-from azure.ai.documentintelligence.models import AnalyzeDocumentRequest, DocumentAnalysisFeature
+from azure.ai.documentintelligence.models import DocumentAnalysisFeature
+from azure.ai.documentintelligence.models._models import AnalyzeResult
+
 import pandas as pd
 import functools
+import json
 import io
 import re
+import os
+import uuid
+from datetime import datetime
 
 # only for development
-import os
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -18,27 +23,34 @@ ocr_key = os.getenv('OCR_KEY')
 ocr_endpoint = os.getenv('OCR_ENDPOINT')
 
 # general
-ocr_type = 'query'               # type of OCR: text, form, table, query
-locale = 'en-US'                # optional, language of the document
-file_list = ''                  # dataframe containing the file names
-path_column = ''                # column that contains the file path
+ocr_type = 'table'                  # type of OCR: text, form, query, tabel
+input_type = 'file'                 # type of input: file, url
+input_mode = 'single'                # single or batch
+file_path = 'data/table-test-document.pdf'                      # path to a (single) file
+file_list = ''                      # dataframe containing the file names
+path_column = ''                    # column that contains the file path
+locale = 'en-US'                    # optional, language of the document
 
-n_con_retry = 3                 # number of retries if connection fails
-retry_delay = 2                 # delay between retries
+n_con_retry = 3                     # number of retries if connection fails
+retry_delay = 2                     # delay between retries
 
-save_json = False               # whether to save the json output
-output_folder = ''              # folder to save the json output  
+save_file = True                    # whether to save the json output
+output_folder = 'output'            # folder to save the json output  
 
 # for text extraction
-lod = 'line'                    # level of detail: word, line, paragraph, page
-model_id = 'prebuilt-read'      # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
+lod = 'line'                        # level of detail: word, line, paragraph, page
+model_id = 'prebuilt-read'          # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
 
 # for query extraction
 query_fields = "City, First name, last name"               # string containing comma separated keys to extract
-exclude_metadata = True              # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
+exclude_metadata = True            # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
 
 # for table extraction
-
+table_output_format = 'reference'  # how the tables should be returned: map, reference*, table** *reference requires a caslib, **only one table per execution is supported
+table_output_caslib = 'work'       # caslib to store the table (only relevant if table_output_format = 'reference')
+select_table = False               # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
+tabel_selection_method = 'index'   # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
+table_idx = 0                      # index of the table to extract (only relevant if table_output_format = 'table')
 
 ##################### HELPER FUNCTIONS #####################
 def retry_on_endpoint_connection_error(max_retries=3, delay=2):
@@ -73,7 +85,7 @@ def retry_on_endpoint_connection_error(max_retries=3, delay=2):
 
     return decorator
 
-def prepare_query(query_list):
+def prepare_query(query_list: str):
     query_list = query_list.split(',')
     query_list = [q.strip() for q in query_list] # remove leading and trailing whitespace
     query_list = [q.replace(' ', '_') if ' ' in q else q for q in query_list] # replace spaces with underscores
@@ -111,7 +123,7 @@ class ExtractText(OCRStrategy):
         self.locale = kwargs.get('locale', 'en-US')
         self.model_id = kwargs.get('model_id', 'prebuilt-read')
 
-    def parse_ocr_result(self, result, level):
+    def parse_ocr_result(self, result) -> pd.DataFrame:
         # azure doesn't provide results on page level natively
         level = self.lod
         if (level.upper() == "PAGE"):
@@ -225,10 +237,13 @@ class ExtractText(OCRStrategy):
                 
                 df = pd.DataFrame(ocr_data)
 
+        if self.model_id == 'prebuilt-read' and self.lod.upper() == 'PARAGRAPH': # 'read' model doesn't provide semantic role, only 'layout' does
+            parsed_result = parsed_result.drop(columns=['role'])
+
         return df
 
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
-    def analyze_document(self, document) -> pd.DataFrame:
+    def analyze_document(self, document) -> AnalyzeResult:
         """ Analyze the document and return the result
         
         Returns:
@@ -242,12 +257,8 @@ class ExtractText(OCRStrategy):
                                                          #locale = self.locale
                                                          )
         result = poller.result()
-        parsed_result = self.parse_ocr_result(result = result, level = self.lod)
-
-        if self.model_id == 'prebuilt-read' and self.lod.upper() == 'PARAGRAPH': # 'read' model doesn't provide semantic role, only 'layout' does
-            parsed_result = parsed_result.drop(columns=['role'])
         
-        return parsed_result
+        return result
 
 class ExtractForm(OCRStrategy):
     def __init__(self, ocr_client, kwargs):
@@ -311,7 +322,7 @@ class ExtractForm(OCRStrategy):
         return df
         
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
-    def analyze_document(self, document) -> pd.DataFrame:
+    def analyze_document(self, document) -> AnalyzeResult:
         poller = self.ocr_client.begin_analyze_document( model_id = "prebuilt-layout", 
                                                         analyze_request = document,
                                                         content_type="application/octet-stream",
@@ -320,9 +331,8 @@ class ExtractForm(OCRStrategy):
                                                         )
         
         result = poller.result()
-        parsed_result = self.parse_ocr_result(result = result)
-
-        return parsed_result
+        
+        return result
 
 class ExtractQuery(OCRStrategy):
     def __init__(self, ocr_client, kwargs):
@@ -332,12 +342,12 @@ class ExtractQuery(OCRStrategy):
         self.query_fields = kwargs.get('query_fields', '')
         self.exclude_metadata = kwargs.get('exclude_metadata', False)
 
-    def parse_ocr_result(self, result, query_fields, exclude_metadata) -> pd.DataFrame:
+    def parse_ocr_result(self, result) -> pd.DataFrame:
         query_data = []
 
         for doc in result.documents:
-            for query in query_fields:
-                if not exclude_metadata:
+            for query in self.query_fields:
+                if not self.exclude_metadata:
                     x1, y1, x2, y2, x3, y3, x4, y4 = doc.fields.get(query).bounding_regions[0].polygon
                     query_info = {
                         'page_number': doc.fields.get(query).bounding_regions[0].page_number,
@@ -373,7 +383,7 @@ class ExtractQuery(OCRStrategy):
         return parsed_result
         
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
-    def analyze_document(self, document) -> pd.DataFrame:
+    def analyze_document(self, document) -> AnalyzeResult:
         poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
                                                         analyze_request = document,
                                                         content_type = "application/octet-stream",
@@ -383,22 +393,161 @@ class ExtractQuery(OCRStrategy):
                                                         )
         
         result = poller.result()
-        parsed_result = self.parse_ocr_result(result = result, 
-                                              query_fields = self.query_fields, 
-                                              exclude_metadata = self.exclude_metadata)
 
-        return parsed_result
+        return result
 
 class ExtractTable(OCRStrategy):
     def __init__(self, ocr_client, kwargs): 
-        pass
+        self.ocr_client = ocr_client
+        self.file_location = kwargs.get('file_location', 'local')
+        self.locale = kwargs.get('locale', 'en-US')
+        self.table_output_format = kwargs.get('table_output_format', 'map')
+        self.select_table = kwargs.get('select_table', False)
+        self.tabel_selection_method = kwargs.get('tabel_selection_method', 'index')
+        self.table_idx = kwargs.get('table_idx', 0)
+        self.table_output_caslib = kwargs.get('table_output_caslib', 'work')
 
-    def parse_ocr_result(self, document) -> pd.DataFrame:
-        pass
-    
+    def result_to_dfs(self, result) -> list:
+        tables = []
+        for table in result.tables:
+            table_df = pd.DataFrame(columns=range(table.column_count), index=range(table.row_count))
+
+            for cell in table.cells:
+                table_df.iloc[cell.row_index, cell.column_index] = cell.content
+
+            # use the first row as column names
+            table_df.columns = table_df.iloc[0]
+            table_df = table_df[1:]
+            
+            tables.append(table_df)
+        return tables
+
+
+    # TABLE PARSING METHODS
+    def map_parsing(self, result) -> pd.DataFrame:
+        tables = []
+
+        # extract all table data
+        for index, table in enumerate(result.tables):
+            if self.table_output_format.upper() == 'MAP':
+                dict = table.as_dict()
+                df = pd.DataFrame.from_dict(dict['cells'])
+
+                # extract page_number and polygon coordinates
+                df['page'] = df['boundingRegions'].apply(lambda x: x[0]['pageNumber'])
+                df['table_index'] = index
+                df['polygon'] = df['boundingRegions'].apply(lambda x: x[0]['polygon'])
+
+                # extract polygon coordinates
+                df['x1'] = df['polygon'].apply(lambda x: x[0])
+                df['y1'] = df['polygon'].apply(lambda x: x[1])
+                df['x2'] = df['polygon'].apply(lambda x: x[2])
+                df['y2'] = df['polygon'].apply(lambda x: x[3])
+                df['x3'] = df['polygon'].apply(lambda x: x[4])
+                df['y3'] = df['polygon'].apply(lambda x: x[5])
+                df['x4'] = df['polygon'].apply(lambda x: x[6])
+                df['y4'] = df['polygon'].apply(lambda x: x[7])
+
+                # extract offset and length
+                df['offset'] = df['spans'].apply(lambda x: int(x[0].get('offset')) if x else None)
+                df['length'] = df['spans'].apply(lambda x: int(x[0].get('length')) if x else None)
+
+                # drop unnecessary columns
+                df.drop(columns=['boundingRegions','spans', 'polygon'], inplace=True)
+
+                table_info = {
+                    'table_index': index,
+                    'row_count': table.row_count,
+                    'column_count': table.column_count,
+                    'cell_count': table.row_count*table.column_count,
+                    'table': df
+                }
+
+                tables.append(table_info)
+
+        # select specific table (optional)
+        if self.select_table:
+            if self.tabel_selection_method.upper() == 'INDEX':
+                parsed_result = tables[table_idx]['table']
+            elif self.tabel_selection_method.upper() == 'SIZE':
+                # Find the entry with the highest cell_count using max function
+                table_most_cells = max(tables, key=lambda x: x['cell_count'], default=None)
+                parsed_result = table_most_cells['table'] if table_most_cells else None
+
+        else:
+            # combine all extracted tables (only works for output type 'map')
+            parsed_result = pd.concat([table['table'] for table in tables], ignore_index=True)
+
+        return parsed_result
+
+    def reference_parsing(self, result) -> pd.DataFrame: # TODO
+        tables = self.result_to_dfs(result)
+        table_info = []
+
+        for table in tables:
+            reference = uuid.uuid4()
+            reference = re.sub(r'^\w{3}', 'tbl_', str(reference))
+            reference = reference.replace('-', '')
+
+            # save table to caslib
+            try: 
+                print(f'Save table {reference} to caslib {self.table_output_caslib}')
+            except Exception as e:
+                print(f'Failed to save table {reference} to caslib {self.table_output_caslib}')
+                raise e
+            
+            table_info.append({
+                'out_caslib': table_output_caslib,
+                'table_reference': reference,
+                'row_count': table.shape[0],
+                'column_count': table.shape[1],
+            })
+
+        return pd.DataFrame(table_info)
+
+    def table_parsing(self, result) -> pd.DataFrame: #TODO
+        tables = self.result_to_dfs(result)
+        self.select_table = True
+
+        # select specific table 
+        if self.select_table:
+            if self.tabel_selection_method.upper() == 'INDEX': # Table with index == table_idx
+                parsed_result = tables[table_idx]
+            elif self.tabel_selection_method.upper() == 'SIZE': # Table with most cells
+                table_most_cells = max(tables, key=lambda x: x.size, default=None)
+                parsed_result = table_most_cells if table_most_cells else None
+
+            else:
+                raise ValueError(f'Invalid table selection method: {self.tabel_selection_method}')
+
+        return parsed_result
+
+
+    # TABLE PARSING METHODS MAPPING
+    parsing_methods = {
+        'MAP': map_parsing,
+        'REFERENCE': reference_parsing,
+        'TABLE': table_parsing
+    }
+
+    def parse_ocr_result(self, result) -> pd.DataFrame:
+        # call one of the parsing methods depending on the output format
+        parsing_method = table_output_format.upper()
+        parsed_result = self.parsing_methods.get(parsing_method)(self,result = result)
+
+        return parsed_result
+
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
-    def analyze_document(self) -> pd.DataFrame:
-        pass
+    def analyze_document(self, document) -> AnalyzeResult:
+        poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+                                                        analyze_request = document,
+                                                        content_type = "application/octet-stream",
+                                                        #locale = self.locale,
+                                                        )
+        
+        result = poller.result()
+
+        return result
 
 # class that processes the OCR
 class OCRProcessor:
@@ -420,34 +569,67 @@ class OCRProcessor:
         strategy_class = self.strategy_mapping[(self.ocr_type)]
         self.strategy = strategy_class(ocr_client = self.ocr_client, kwargs = self.kwargs)
 
-    def analyze_document(self, document):
+    def analyze_document(self, document:io.BytesIO|str) -> AnalyzeResult:
         return self.strategy.analyze_document(document)
     
-###################### EXECUTION ######################
-# test input (for dev only)
+    def parse_ocr_result(self, result:AnalyzeResult) -> pd.DataFrame:
+        return self.strategy.parse_ocr_result(result)
+    
+###################### TEST DATA (FOR DEV) ######################
 data = {'file_path': ['data/handwritten-form.jpg','data/letter-example.pdf'],
         'filename': ['doc1', 'doc2']}
 
 form_data = {'file_path': ['data/patient_intake_form_sample.jpg'],
             'filename': ['doc1']}
 
-file_list = pd.DataFrame(form_data)
+tabel_data = {'file_path': ['data/table-test-document.pdf'],
+            'filename': ['doc1']}
+
+file_list = pd.DataFrame(tabel_data)
 path_column = 'file_path'
 
-
-
-# prepare the query string to the right format
-if ocr_type.upper() == 'QUERY':
+###################### PREP & PRE-CHECKS ######################
+if ocr_type.upper() == 'QUERY': # prepare the query string to the right format
     query_fields = prepare_query(query_fields)
     print(f'query list: {query_fields}')
 
+if save_file: # check if output folder should be created (if save_file = True)
+    # check if output folder exists
+    if not os.path.exists(output_folder):
+        try:
+            os.makedirs(output_folder)
+            print(f'Created output folder {output_folder}!')
+        except OSError as e:
+            raise OSError(f'Could not create output folder {output_folder}!')
+    
+    # check if output folder is writable
+    if not os.access(output_folder, os.W_OK):
+        raise OSError(f'Output folder {output_folder} is not writable!')
+
+if table_output_format.upper() == 'TABLE' and file_list.shape[0] > 1: # if table_output_format = 'table', check if only one row in the file_list
+    raise Exception('Only one file is supported if table_output_format = "table"!')
+
+if input_mode.upper() == 'SINGLE': # if input_mode = 'single', create a dataframe with the file path
+    file_list = pd.DataFrame({'file_path': [file_path]})
+    path_column = 'file_path'
+
+###################### EXECUTION ######################
 # define all possible parameters for the OCR
 ocr_params = {
+              # general
               'ocr_level': lod,
               'locale': locale,
+              # for text extraction
               'model_id': model_id,
+              # for query extraction
               'query_fields': query_fields,
               'exclude_metadata': exclude_metadata,
+              # for table extraction
+              'table_output_format': table_output_format,
+              'selected_table': select_table,
+              'selection_method': tabel_selection_method,
+              'table_idx': table_idx,
+              'table_output_caslib': table_output_caslib,
               }
 
 # initiate the OCR client and processor
@@ -471,15 +653,20 @@ for _, row in file_list.iterrows():
     done = False
     error_type = ''
     message = ''
+    start = datetime.now()
 
-    # read the document
+    # perform the OCR
     with open(row[path_column], 'rb') as document:
         document = io.BytesIO(document.read())
-
-    # analyze the document
     try:
-        result = ocr_processor.analyze_document(document)
-        ocr_results = pd.concat([ocr_results, result], ignore_index=True)
+        # analyze the document
+        result = ocr_processor.analyze_document(document = document)
+
+        # parse the result
+        parsed_result = ocr_processor.parse_ocr_result(result = result)
+
+        # append results to the dataframe
+        ocr_results = pd.concat([ocr_results, parsed_result], ignore_index=True)
         ocr_results[path_column]=row[path_column]
         done = True
     except Exception as e:
@@ -488,19 +675,37 @@ for _, row in file_list.iterrows():
         print(f'Error: {error_type} - {message}')
         raise e
     
+    # Post processing
+    if table_output_format.upper() == 'TABLE': # if output_table_format = 'table', drop the path_column
+        ocr_results.drop(columns=[path_column], inplace=True)
+    if save_file: # if save_file = True, save the azure ocr result as json
+        # save the result as json
+        try: 
+            with open(f'{output_folder}/{row[path_column].split("/")[-1].split(".")[0]}_{ocr_type}.json', 'w') as f:
+                json.dump(result.as_dict(), f)
+        except Exception as e:
+            error_type = type(e).__name__
+            message = str(e)
+            print(f'Error: {error_type} - {message}')
+
     # update the status
     doc_status = {'file': row[path_column],
                   'done': done,
                   'error_type': error_type,
-                  'message': message
+                  'message': message,
+                  'start': start,
+                  'end': datetime.now(),
+                  'duration_seconds': round((datetime.now() - start).total_seconds(), 3)
                   }
-    
     status = pd.concat([status, pd.DataFrame(doc_status, index=[0])], ignore_index=True)
 
 # print & save the results (dev only)
 print(f'Successfully processed {status["done"].sum()} / {status.shape[0]} files!')
 ocr_results.to_csv('ocr_results.csv')
 status.to_csv('ocr_status.csv')
+
+ 
+
 
 
     
