@@ -28,7 +28,8 @@ load_dotenv()
 ocr_key = str(os.getenv('OCR_KEY'))
 ocr_endpoint = str(os.getenv('OCR_ENDPOINT'))
 
-API_VERSION = '2023-10-31-preview'  # default: '2023-10-31-preview'- to lock the API version, in case breaking changes are introduced
+SERVICE_VERSION = '4.0'                  # 4.0 is in preview. Local containers are only supported in 3.0 (GA) thus far
+API_VERSION = '2023-10-31-preview'       # default: '2023-10-31-preview'- to lock the API version, in case breaking changes are introduced
 
 # general
 ocr_type = str('text')                   # type of OCR: text, form, query, tabel
@@ -58,7 +59,7 @@ exclude_metadata = bool(True)            # if excluded, the resulting table will
 
 # for table extraction
 table_output_format = str('map')  # how the tables should be returned: map, reference*, table** *reference requires a caslib, **only one table per execution is supported
-table_output_caslib = str('work')       # caslib to store the table (only relevant if table_output_format = 'reference')
+table_output_library = str('work')       # caslib to store the table (only relevant if table_output_format = 'reference')
 select_table = bool(False)               # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
 tabel_selection_method = str('index')   # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
 table_idx = int(0)                      # index of the table to extract (only relevant if table_output_format = 'table')
