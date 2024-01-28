@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  azure-form-recognizer-read:
+    container_name: azure-form-recognizer-read
+    image: mcr.microsoft.com/azure-cognitive-services/form-recognizer/read-3.0
+    environment:
+      - EULA=accept
+      - billing=https://sas-ocr-development.cognitiveservices.azure.com/
+      - apiKey=2e34f5119a6740fe8a7740b66c1149b9
+    ports:
+      - "5012:5012"
+    networks:
+      - ocrvnet
+networks:
+  ocrvnet:
+    driver: bridge
