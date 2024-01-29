@@ -66,8 +66,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 | Parameter   | Required      | Description                                                      |
 |-------------|:---------------:|------------------------------------------------------------------|
 | OCR Type    | Yes           | Defines the type of Optical Character Recognition (OCR) to use   |
-| Input Mode  | Yes           | Indicates if processing a list of files or a single file         |
-| Input Type  | Yes           | Specifies if local files or URLs will serve as input             |
+| Input Mode  | Yes           | Indicates if processing a list of files or a single file         
 | File Path   | No*           | The file path for processing a single file                       |
 | Input Table | No†           | The name of the table containing file paths/URLs for batch processing |
 | Path Column | No†           | The column in the input table that contains the file path/URL    |
