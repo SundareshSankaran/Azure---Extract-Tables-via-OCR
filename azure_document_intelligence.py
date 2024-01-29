@@ -25,8 +25,8 @@ load_dotenv()
 
 ################### DEFINE PARAMETERS ###################
 # azure credentials
-ocr_key = str(os.getenv('OCR_KEY'))
-ocr_endpoint = str(os.getenv('OCR_ENDPOINT'))
+azure_key = str(os.getenv('OCR_KEY'))
+azure_endpoint = str(os.getenv('OCR_ENDPOINT'))
 
 SERVICE_VERSION = '4.0'                  # 4.0 is in preview. Local containers are only supported in 3.0 (GA) thus far
 API_VERSION = '2023-10-31-preview'       # default: '2023-10-31-preview'- to lock the API version, in case breaking changes are introduced
@@ -45,24 +45,23 @@ n_con_retry = int(3)                     # number of retries if connection fails
 retry_delay = int(2)                     # delay between retries
 output_status_table = bool(1)            # whether to output the status table
 
-save_file = bool(True)                   # whether to save the json output
-output_folder = str('output')            # folder to save the json output
-
+save_json = bool(True)                   # whether to save the json output
+json_output_folder = str('output')            # folder to save the json output
 
 # for text extraction
-lod = str('word')                        # level of detail: word, line, paragraph, page
+text_granularity = str('word')                        # level of detail: word, line, paragraph, page
 model_id = str('prebuilt-read')          # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
 
 # for query extraction
 query_fields = str("City, First name, last name")               # string containing comma separated keys to extract
-exclude_metadata = bool(True)            # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
+query_exclude_metadata = bool(True)            # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
 
 # for table extraction
 table_output_format = str('map')  # how the tables should be returned: map, reference*, table** *reference requires a caslib, **only one table per execution is supported
 table_output_library = str('work')       # caslib to store the table (only relevant if table_output_format = 'reference')
 select_table = bool(False)               # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
-tabel_selection_method = str('index')   # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
-table_idx = int(0)                      # index of the table to extract (only relevant if table_output_format = 'table')
+table_selection_method = str('index')   # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
+table_selection_idx = int(0)                      # index of the table to extract (only relevant if table_output_format = 'table')
 
 ##################### HELPER FUNCTIONS #####################
 def retry_on_endpoint_connection_error(max_retries=3, delay=2):
@@ -146,7 +145,7 @@ class OCRStrategy:
 class ExtractText(OCRStrategy): 
     def __init__(self, ocr_client, kwargs):
         self.ocr_client = ocr_client
-        self.lod = kwargs.get('lod', 'line')
+        self.text_granularity = kwargs.get('text_granularity', 'line')
         self.file_location = kwargs.get('file_location', 'local')
         self.locale = kwargs.get('locale', 'en-US')
         self.model_id = kwargs.get('model_id', 'prebuilt-read')
@@ -154,11 +153,11 @@ class ExtractText(OCRStrategy):
     def parse_ocr_result(self, result) -> pd.DataFrame:
 
         # azure doesn't provide results on page level natively
-        level = self.lod
+        level = self.text_granularity
         if (level.upper() == "PAGE"):
-            lod = "LINE"
+            text_granularity = "LINE"
         else:
-            lod = level.upper()
+            text_granularity = level.upper()
 
         for page in result.pages:
             try:
@@ -169,14 +168,14 @@ class ExtractText(OCRStrategy):
             ocr_data = []
             
             # to calculate the average confidence
-            if lod != "WORD":
+            if text_granularity != "WORD":
                 word_confidences = [word.confidence for word in page.words]
                 total_confidence = sum(word_confidences)
                 total_words = len(word_confidences)
                 average_confidence = total_confidence / total_words if total_words > 0 else 0
                 
             # extraction of (natively provided) results 
-            if lod == "PARAGRPAH":
+            if text_granularity == "PARAGRPAH":
                 for paragraph_idx, paragraph in enumerate(result.paragraphs):
                     x1, y1, x2, y2, x3, y3, x4, y4 = paragraph.bounding_regions[0].polygon
 
@@ -199,7 +198,7 @@ class ExtractText(OCRStrategy):
                     
                     ocr_data.append(paragrpah_info)
 
-            elif lod == "LINE":
+            elif text_granularity == "LINE":
                 for line_idx, line in enumerate(page.lines):
                     x1, y1, x2, y2, x3, y3, x4, y4 = line.polygon
 
@@ -221,7 +220,7 @@ class ExtractText(OCRStrategy):
                     
                     ocr_data.append(line_info)
 
-            elif lod == "WORD":
+            elif text_granularity == "WORD":
                 for word in page.words:
                     x1, y1, x2, y2, x3, y3, x4, y4 = word.polygon
 
@@ -266,7 +265,7 @@ class ExtractText(OCRStrategy):
                 
                 df = pd.DataFrame(ocr_data)
 
-        if self.model_id == 'prebuilt-read' and self.lod.upper() == 'PARAGRAPH': # 'read' model doesn't provide semantic role, only 'layout' does
+        if self.model_id == 'prebuilt-read' and self.text_granularity.upper() == 'PARAGRAPH': # 'read' model doesn't provide semantic role, only 'layout' does
             parsed_result = parsed_result.drop(columns=['role'])
 
         return df
@@ -374,14 +373,14 @@ class ExtractQuery(OCRStrategy):
         self.file_location = kwargs.get('file_location', 'local')
         self.locale = kwargs.get('locale', 'en-US')
         self.query_fields = kwargs.get('query_fields', '')
-        self.exclude_metadata = kwargs.get('exclude_metadata', False)
+        self.query_exclude_metadata = kwargs.get('query_exclude_metadata', False)
 
     def parse_ocr_result(self, result) -> pd.DataFrame:
         query_data = []
 
         for doc in result.documents:
             for query in self.query_fields:
-                if not self.exclude_metadata:
+                if not self.query_exclude_metadata:
                     x1, y1, x2, y2, x3, y3, x4, y4 = doc.fields.get(query).bounding_regions[0].polygon
                     query_info = {
                         'page_number': doc.fields.get(query).bounding_regions[0].page_number,
@@ -410,8 +409,8 @@ class ExtractQuery(OCRStrategy):
 
         parsed_result = pd.DataFrame(query_data)
 
-        # if exclude_metadata, transpose results
-        if exclude_metadata:
+        # if query_exclude_metadata, transpose results
+        if query_exclude_metadata:
             parsed_result = parsed_result.set_index('key').T
 
         return parsed_result
@@ -437,8 +436,8 @@ class ExtractTable(OCRStrategy):
         self.locale = kwargs.get('locale', 'en-US')
         self.table_output_format = kwargs.get('table_output_format', 'map')
         self.select_table = kwargs.get('select_table', False)
-        self.tabel_selection_method = kwargs.get('tabel_selection_method', 'index')
-        self.table_idx = kwargs.get('table_idx', 0)
+        self.table_selection_method = kwargs.get('table_selection_method', 'index')
+        self.table_selection_idx = kwargs.get('table_selection_idx', 0)
         self.table_output_caslib = kwargs.get('table_output_caslib', 'work')
 
     def result_to_dfs(self, result) -> list:
@@ -501,9 +500,9 @@ class ExtractTable(OCRStrategy):
 
         # select specific table (optional)
         if self.select_table:
-            if self.tabel_selection_method.upper() == 'INDEX':
-                parsed_result = tables[table_idx]['table']
-            elif self.tabel_selection_method.upper() == 'SIZE':
+            if self.table_selection_method.upper() == 'INDEX':
+                parsed_result = tables[table_selection_idx]['table']
+            elif self.table_selection_method.upper() == 'SIZE':
                 # Find the entry with the highest cell_count using max function
                 table_most_cells = max(tables, key=lambda x: x['cell_count'], default=None)
                 parsed_result = table_most_cells['table'] if table_most_cells else None
@@ -545,14 +544,14 @@ class ExtractTable(OCRStrategy):
 
         # select specific table 
         if self.select_table:
-            if self.tabel_selection_method.upper() == 'INDEX': # Table with index == table_idx
-                parsed_result = tables[table_idx]
-            elif self.tabel_selection_method.upper() == 'SIZE': # Table with most cells
+            if self.table_selection_method.upper() == 'INDEX': # Table with index == table_selection_idx
+                parsed_result = tables[table_selection_idx]
+            elif self.table_selection_method.upper() == 'SIZE': # Table with most cells
                 table_most_cells = max(tables, key=lambda x: x.size, default=None)
                 parsed_result = table_most_cells if table_most_cells else None
 
             else:
-                raise ValueError(f'Invalid table selection method: {self.tabel_selection_method}')
+                raise ValueError(f'Invalid table selection method: {self.table_selection_method}')
 
         return parsed_result
 
@@ -684,19 +683,19 @@ if ocr_type.upper() == 'QUERY': # prepare the query string to the right format
         print(f'ERROR: {e}')
         exit()
     
-if save_file: # check if output folder should be created (if save_file = True)
+if save_json: # check if output folder should be created (if save_json = True)
     # check if output folder exists
-    if not os.path.exists(output_folder):
+    if not os.path.exists(json_output_folder):
         try:
-            os.makedirs(output_folder)
-            print(f'Created output folder {output_folder}!')
+            os.makedirs(json_output_folder)
+            print(f'Created output folder {json_output_folder}!')
         except OSError as e:
-            raise OSError(f'OSError - Could not create output folder {output_folder}!')
+            raise OSError(f'OSError - Could not create output folder {json_output_folder}!')
             exit()
     
     # check if output folder is writable
-    if not os.access(output_folder, os.W_OK):
-        raise OSError(f'OSError - Output folder {output_folder} is not writable!')
+    if not os.access(json_output_folder, os.W_OK):
+        raise OSError(f'OSError - Output folder {json_output_folder} is not writable!')
         exit()
 
 if table_output_format.upper() == 'TABLE' and file_list.shape[0] > 1: # if table_output_format = 'table', check if only one row in the file_list
@@ -711,19 +710,19 @@ if input_mode.upper() == 'SINGLE': # if input_mode = 'single', create a datafram
 # define all possible parameters for the OCR
 ocr_params = {
               # general
-              'ocr_level': lod,
+              'ocr_level': text_granularity,
               'locale': locale,
               # for text extraction
               'model_id': model_id,
               # for query extraction
               'query_fields': query_fields,
-              'exclude_metadata': exclude_metadata,
+              'query_exclude_metadata': query_exclude_metadata,
               # for table extraction
               'table_output_format': table_output_format,
               'selected_table': select_table,
-              'selection_method': tabel_selection_method,
-              'table_idx': table_idx,
-              'table_output_caslib': table_output_caslib,
+              'selection_method': table_selection_method,
+              'table_selection_idx': table_selection_idx,
+              'table_output_caslib': table_output_library,
               }
 
 # initiate dataframe to store results and status
@@ -731,8 +730,8 @@ ocr_results = pd.DataFrame()
 status = pd.DataFrame()
 
 # initiate the OCR client and processor
-ocr_client = DocumentIntelligenceClient(endpoint = ocr_endpoint, 
-                                        credential = AzureKeyCredential(ocr_key),
+ocr_client = DocumentIntelligenceClient(endpoint = azure_endpoint, 
+                                        credential = AzureKeyCredential(azure_key),
                                         api_version = API_VERSION
                                         )
 
@@ -790,10 +789,10 @@ def process_files(file_list, ocr_processor, path_column):
         if table_output_format.upper() == 'TABLE': # if output_table_format = 'table', drop the path_column
             ocr_results.drop(columns=[path_column], inplace=True)
 
-        if save_file: # if save_file = True, save the azure ocr result as json
+        if save_json: # if save_json = True, save the azure ocr result as json
             # save the result as json
             try: 
-                with open(f'{output_folder}/{row[path_column].split("/")[-1].split(".")[0]}_{ocr_type}.json', 'w') as f:
+                with open(f'{json_output_folder}/{row[path_column].split("/")[-1].split(".")[0]}_{ocr_type}.json', 'w') as f:
                     json.dump(result.as_dict(), f)
             except Exception as e:
                 error_type = type(e).__name__
