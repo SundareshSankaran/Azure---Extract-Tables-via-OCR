@@ -28,7 +28,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 > 
 ### Supported File Types
 
-| Model       | PDF | Image$^1$ | DOCX, XLSX, PPTX, HTML |
+| Model       | PDF | Image[^1] | DOCX, XLSX, PPTX, HTML |
 |---------------|----------|----------------------------------------|--------------------------------------------------|
 | Read   | ✅   | ✅                                     | ✅                                               |
 | Layout | ✅   | ✅                                      | ✅                           |
