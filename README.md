@@ -33,7 +33,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 | Read   | ✅   | ✅                                     | ✅                                               |
 | Layout | ✅   | ✅                                      | ✅                           |
 
-[1] JPEG/JPG, PNG, BMP, TIFF, HEIF
+[^1] JPEG/JPG, PNG, BMP, TIFF, HEIF
 ### Test data
 - [Sample forms on Github](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms)
 - [Handwritten Form Sample](https://www.nist.gov/image/sd19jpg)
