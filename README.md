@@ -122,9 +122,10 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
   ![](img/keys-and-endpoint.png)
 </details>
 <br>
-<details>
-  <summary style="font-size: 18px;">🧙‍♂️ Advanced</summary>
-  
+
+
+### 🧙‍♂️ Advanced
+
 | Parameter  | Required | Description |
 |---------------------|:----------:|--------------------------------|
 |Number of Retries| No |How many retries attempts before a document is skipped|
@@ -135,25 +136,12 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 
 \* Required if ``Save as JSON`` is set to *true*.
 
-</details>
-
 ## 📚 Documentation
 - [What is Azure AI Document Intelligence?](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/overview?view=doc-intel-4.0.0)
 - [Azure AI Document Intelligence documentation](https://learn.microsoft.com/en-US/azure/ai-services/document-intelligence/?view=doc-intel-4.0.0&viewFallbackFrom=form-recog-3.0.0&branch=release-build-cogserv-forms-recognizer)
 - [Pricing](https://azure.microsoft.com/en-us/pricing/details/ai-document-intelligence/#pricing)
 - [Language Support](https://learn.microsoft.com/en-GB/azure/ai-services/document-intelligence/language-support-ocr?view=doc-intel-4.0.0&tabs=read-print%2Clayout-print%2Cgeneral)
   
-<details>
-  <summary style="font-size: 22px; font-weight: bold;">Screenshot</summary>
-  
-  | Parameter  | Required | Description |
-|---------------------|:----------:|--------------------------------|
-|Number of Retries|  |How many retries attempts before a file is skipped.|
-|Seconds between retries|| How many seconds between retry attempts.|
-|Number of Threads||How many Python threads will be used to process all files.|
-|Save as JSON||Whether to save the raw output as JSON (one file per document).|
-|Output Folder|No*|Folder for the JSON files.|
-</details>
 
 ## 📝 Change Log
 * Version 1.0 (08JAN2024) 
