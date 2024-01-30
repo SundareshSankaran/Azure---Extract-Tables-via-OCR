@@ -10,14 +10,20 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 - ✅ Paralel Execution (threading)
 
 ## 📖 Contents
-- [💻 User Interface](#💻-user-interface)
-- [👩‍💻 Usage](#👩‍💻-usage)
-- [📋 Requirements](#📋-requirements)
-- [⚙️ Settings](#⚙️-settings)
+- [💻 User Interface](#user-interface)
+- [👩‍💻 Usage](#usage)
+- [📋 Requirements](requirements)
+- [⚙️ Settings](#settings)
 - [📚 Documentation](#documentation)
-- [📝 Change Log](#📝-change-log)
+- [📝 Change Log](#change-log)
+
+<a name="user-interface"/>
+
 ## 💻 User Interface
 [TODO]
+
+<a name="usage"/>
+
 ## 👩‍💻 Usage
 
 > **Note:** This step works great with the [Create Listings of Directory - CLOD](https://github.com/sassoftware/sas-studio-custom-steps/tree/main/Create%20Listing%20of%20Directory%20CLOD) custom step  to create the input file-list based on a folder of documents. 
@@ -41,6 +47,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 
 > **Pro Tip:** Take a photo with your smarphone, make a screenshot of a document or export a PowerPoint slide as image / PDF.
 
+<a name="requirements"/>
 
 ## 📋 Requirements
 
@@ -58,7 +65,7 @@ Tested on SAS Viya version Stable 2024.1
 ### 🤖 Azure AI Document Intelligence Resource
 To use this step the endpoint and key for an Azure Document Intelligence Resource is needed. <br> 👉 [Create a Document Intelligence resource](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/create-document-intelligence-resource?view=doc-intel-4.0.0)
 
-
+<a name="settings"/>
 
 ## ⚙️ Settings
 
