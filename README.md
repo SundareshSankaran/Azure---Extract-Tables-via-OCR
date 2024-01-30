@@ -12,7 +12,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 ## 📖 Contents
 - [💻 User Interface](#user-interface)
 - [👩‍💻 Usage](#usage)
-- [📋 Requirements](requirements)
+- [📋 Requirements](#requirements)
 - [⚙️ Settings](#settings)
 - [📚 Documentation](#documentation)
 - [📝 Change Log](#change-log)
