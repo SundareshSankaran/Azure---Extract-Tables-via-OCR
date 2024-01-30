@@ -17,21 +17,21 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 - [📚 Documentation](#📚-documentation)
 - [📝 Change Log](#📝-change-log)
 ## 💻 User Interface
-
+[TODO]
 ## 👩‍💻 Usage
 
 > **Note:** This step works great with the [Create Listings of Directory - CLOD](https://github.com/sassoftware/sas-studio-custom-steps/tree/main/Create%20Listing%20of%20Directory%20CLOD) custom step  to create the input file-list based on a folder of documents. 
 
-### 📺 Tutorial (Click Thumbnail)
-[![YOUTUBE THUMBNAIL]()](https://youtu.be/RP0CHuIbVGE)
-
+### 📺 Tutorial (👇Click Thumbnail👇)
+[IN PROGRESS]
+[![YOUTUBE THUMBNAIL](<img/thumbnail azure ocr custom step.jpg>)](https://youtu.be/RP0CHuIbVGE)
 
 ### Supported File Types
 
-| Model       | PDF | Image[^1] | DOCX, XLSX, PPTX, HTML |
-|---------------|----------|----------------------------------------|--------------------------------------------------|
-| Read   | ✅   | ✅                                     | ✅                                               |
-| Layout | ✅   | ✅                                      | ✅                           |
+| Model       | PDF | Image[^1] |
+|---------------|----------|----------------------------------------|
+| Read   | ✅   | ✅                                     |
+| Layout | ✅   | ✅                                      |
 
 [^1]: JPEG/JPG, PNG, BMP, TIFF, HEIF
 ### Test data
