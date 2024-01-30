@@ -151,6 +151,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 - [Pricing](https://azure.microsoft.com/en-us/pricing/details/ai-document-intelligence/#pricing)
 - [Language Support](https://learn.microsoft.com/en-GB/azure/ai-services/document-intelligence/language-support-ocr?view=doc-intel-4.0.0&tabs=read-print%2Clayout-print%2Cgeneral)
   
+<a name="change-log"/>
 
 ## 📝 Change Log
 * Version 1.0 (08JAN2024) 
