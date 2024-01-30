@@ -137,6 +137,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 \* Required if ``Save as JSON`` is set to *true*.
 
 <a name="documentation"/>
+
 ## 📚 Documentation
 - [What is Azure AI Document Intelligence?](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/overview?view=doc-intel-4.0.0)
 - [Azure AI Document Intelligence documentation](https://learn.microsoft.com/en-US/azure/ai-services/document-intelligence/?view=doc-intel-4.0.0&viewFallbackFrom=form-recog-3.0.0&branch=release-build-cogserv-forms-recognizer)
