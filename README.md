@@ -120,7 +120,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 ### 🔐 Azure
 | Parameter  | Required | Description |
 |---------------------|:----------:|--------------------------------|
-|Endpoint| Yes | AI Document Intelligence Resource Endpoint |
+|Endpoint URL| Yes | AI Document Intelligence Resource Endpoint |
 |Key |Yes| Secret Key |
 
 <details>
