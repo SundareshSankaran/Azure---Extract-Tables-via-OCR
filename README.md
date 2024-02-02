@@ -36,13 +36,9 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 
 | Model       | PDF | Image[^1] |
 |---------------|----------|----------------------------------------|
-<<<<<<< HEAD
 | Read   | ✅   |  ✅                                               |
 | Layout | ✅   | ✅                                      | 
-=======
-| Read   | ✅   | ✅                                     |
-| Layout | ✅   | ✅                                      |
->>>>>>> 2c7a243260eedd399765259236dfc80f65b1b2ee
+
 
 [^1]: JPEG/JPG, PNG, BMP, TIFF, HEIF
 ### Test data
