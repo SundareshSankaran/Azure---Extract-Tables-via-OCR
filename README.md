@@ -28,10 +28,10 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 
 ### Supported File Types
 
-| Model       | PDF | Image[^1] | DOCX, XLSX, PPTX, HTML |
-|---------------|----------|----------------------------------------|--------------------------------------------------|
-| Read   | ✅   | ✅                                     | ✅                                               |
-| Layout | ✅   | ✅                                      | ✅                           |
+| Model       | PDF | Image[^1] |
+|---------------|----------|----------------------------------------|
+| Read   | ✅   |  ✅                                               |
+| Layout | ✅   | ✅                                      | 
 
 [^1]: JPEG/JPG, PNG, BMP, TIFF, HEIF
 ### Test data
@@ -141,6 +141,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 - [Azure AI Document Intelligence documentation](https://learn.microsoft.com/en-US/azure/ai-services/document-intelligence/?view=doc-intel-4.0.0&viewFallbackFrom=form-recog-3.0.0&branch=release-build-cogserv-forms-recognizer)
 - [Pricing](https://azure.microsoft.com/en-us/pricing/details/ai-document-intelligence/#pricing)
 - [Language Support](https://learn.microsoft.com/en-GB/azure/ai-services/document-intelligence/language-support-ocr?view=doc-intel-4.0.0&tabs=read-print%2Clayout-print%2Cgeneral)
+- [Data Privacy](https://learn.microsoft.com/en-us/legal/cognitive-services/document-intelligence/data-privacy-security)
   
 
 ## 📝 Change Log

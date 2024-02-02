@@ -28,40 +28,40 @@ load_dotenv()
 azure_key = str(os.getenv('OCR_KEY'))
 azure_endpoint = str(os.getenv('OCR_ENDPOINT'))
 
-SERVICE_VERSION = '4.0'                  # 4.0 is in preview. Local containers are only supported in 3.0 (GA) thus far
-API_VERSION = '2023-10-31-preview'       # default: '2023-10-31-preview'- to lock the API version, in case breaking changes are introduced
+SERVICE_VERSION = '4.0'                         # 4.0 is in preview. Local containers are only supported in 3.0 (GA) thus far
+API_VERSION = '2023-10-31-preview'              # default: '2023-10-31-preview'- to lock the API version, in case breaking changes are introduced
 
 # general
-ocr_type = str('text')                   # type of OCR: text, form, query, tabel
-input_type = str('file')                 # type of input: file, url (only file supported for now)
-input_mode = str('batch')                # single or batch
-file_path = str('data/table-test-document.pdf')                      # path to a (single) file
-input_table_name = None                  # name of table containing the file paths
-path_column = str('')                    # column that contains the file path
-locale = str('en-US')                    # optional, language of the document [ToDo]
+ocr_type = str('text')                          # type of OCR: text, form, query, tabel
+input_type = str('file')                        # type of input: file, url (only file supported for now)
+input_mode = str('batch')                       # single or batch
+file_path = str('data/table-test-document.pdf') # path to a (single) file
+input_table_name = None                         # name of table containing the file paths
+path_column = str('')                           # column that contains the file path
+locale = str('en-US')                           # optional, language of the document [ToDo]
 
-n_threads = int(32)                      # number of threads to use for parallel processing
-n_con_retry = int(3)                     # number of retries if connection fails
-retry_delay = int(2)                     # delay between retries
-output_status_table = bool(1)            # whether to output the status table
+n_threads = int(32)                             # number of threads to use for parallel processing
+n_con_retry = int(3)                            # number of retries if connection fails
+retry_delay = int(2)                            # delay between retries
+output_status_table = bool(1)                   # whether to output the status table
 
-save_json = bool(True)                   # whether to save the json output
-json_output_folder = str('output')            # folder to save the json output
+save_json = bool(False)                         # whether to save the json output
+json_output_folder = str('output')              # folder to save the json output
 
 # for text extraction
-text_granularity = str('word')                        # level of detail: word, line, paragraph, page
-model_id = str('prebuilt-read')          # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
+text_granularity = str('word')                  # level of detail: word, line, paragraph, page
+model_id = str('prebuilt-read')                 # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
 
 # for query extraction
-query_fields = str("City, First name, last name")               # string containing comma separated keys to extract
-query_exclude_metadata = bool(True)            # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
+query_fields = str("City, First name")          # string containing comma separated keys to extract
+query_exclude_metadata = bool(True)             # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
 
 # for table extraction
-table_output_format = str('map')  # how the tables should be returned: map, reference*, table** *reference requires a caslib, **only one table per execution is supported
-table_output_library = str('work')       # caslib to store the table (only relevant if table_output_format = 'reference')
-select_table = bool(False)               # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
-table_selection_method = str('index')   # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
-table_selection_idx = int(0)                      # index of the table to extract (only relevant if table_output_format = 'table')
+table_output_format = str('map')                # how the tables should be returned: map, reference*, table** *reference requires a caslib, **only one table per execution is supported
+table_output_library = str('work')              # caslib to store the table (only relevant if table_output_format = 'reference')
+select_table = bool(False)                      # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
+table_selection_method = str('index')           # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
+table_selection_idx = int(0)                    # index of the table to extract (only relevant if table_output_format = 'table')
 
 ##################### HELPER FUNCTIONS #####################
 def retry_on_endpoint_connection_error(max_retries=3, delay=2):
@@ -632,7 +632,7 @@ class OCRProcessor:
         return self.strategy.parse_ocr_result(result)
     
 ###################### TEST DATA (FOR DEV) ######################
-data = {'file_path': ['data/handwritten-form.jpg','data/letter-example.pdf'],
+data = {'file_path': ['data/Lorem ipsum - Generator und Informationen.html','data/letter-example.pdf'],
         'filename': ['doc1', 'doc2']}
 
 form_data = {'file_path': ['data/patient_intake_form_sample.jpg'],
@@ -641,7 +641,7 @@ form_data = {'file_path': ['data/patient_intake_form_sample.jpg'],
 tabel_data = {'file_path': ['data/table-test-document.pdf'],
             'filename': ['doc1']}
 
-file_list = pd.DataFrame(tabel_data)
+file_list = pd.DataFrame(data)
 path_column = 'file_path'
 
 # create a dataframe with all the file paths of a specified folder not as method yet
@@ -652,7 +652,7 @@ def get_file_list(folder_path):
             file_list.append(os.path.join(root, file))
     
     # filter out all non-pdf and images
-    file_list = [file for file in file_list if file.endswith(('.pdf', '.jpg', '.jpeg', '.png'))]
+    file_list = [file for file in file_list if file.endswith(('.pdf', '.jpg', '.jpeg', '.png', '.docx'))]
     return pd.DataFrame({'file_path': file_list})
 
 file_list = get_file_list('data')
