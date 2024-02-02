@@ -530,7 +530,7 @@ class ExtractTable(OCRStrategy):
                 raise e
             
             table_info.append({
-                'out_caslib': table_output_caslib,
+                'out_library': table_output_library,
                 'table_reference': reference,
                 'row_count': table.shape[0],
                 'column_count': table.shape[1],
