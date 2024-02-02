@@ -10,28 +10,39 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 - ✅ Paralel Execution (threading)
 
 ## 📖 Contents
-- [💻 User Interface](#💻-user-interface)
-- [👩‍💻 Usage](#👩‍💻-usage)
-- [📋 Requirements](#📋-requirements)
-- [⚙️ Settings](#⚙️-settings)
-- [📚 Documentation](#📚-documentation)
-- [📝 Change Log](#📝-change-log)
+- [💻 User Interface](#user-interface)
+- [👩‍💻 Usage](#usage)
+- [📋 Requirements](#requirements)
+- [⚙️ Settings](#settings)
+- [📚 Documentation](#documentation)
+- [📝 Change Log](#change-log)
+
+<a name="user-interface"/>
+
 ## 💻 User Interface
+[TODO]
+
+<a name="usage"/>
 
 ## 👩‍💻 Usage
 
 > **Note:** This step works great with the [Create Listings of Directory - CLOD](https://github.com/sassoftware/sas-studio-custom-steps/tree/main/Create%20Listing%20of%20Directory%20CLOD) custom step  to create the input file-list based on a folder of documents. 
 
-### 📺 Tutorial (Click Thumbnail)
-[![YOUTUBE THUMBNAIL]()](https://youtu.be/RP0CHuIbVGE)
-
+### 📺 Tutorial (👇Click Thumbnail👇)
+[IN PROGRESS]
+[![YOUTUBE THUMBNAIL](<img/thumbnail azure ocr custom step.jpg>)](https://youtu.be/RP0CHuIbVGE)
 
 ### Supported File Types
 
 | Model       | PDF | Image[^1] |
 |---------------|----------|----------------------------------------|
+<<<<<<< HEAD
 | Read   | ✅   |  ✅                                               |
 | Layout | ✅   | ✅                                      | 
+=======
+| Read   | ✅   | ✅                                     |
+| Layout | ✅   | ✅                                      |
+>>>>>>> 2c7a243260eedd399765259236dfc80f65b1b2ee
 
 [^1]: JPEG/JPG, PNG, BMP, TIFF, HEIF
 ### Test data
@@ -41,6 +52,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 
 > **Pro Tip:** Take a photo with your smarphone, make a screenshot of a document or export a PowerPoint slide as image / PDF.
 
+<a name="requirements"/>
 
 ## 📋 Requirements
 
@@ -58,7 +70,7 @@ Tested on SAS Viya version Stable 2024.1
 ### 🤖 Azure AI Document Intelligence Resource
 To use this step the endpoint and key for an Azure Document Intelligence Resource is needed. <br> 👉 [Create a Document Intelligence resource](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/create-document-intelligence-resource?view=doc-intel-4.0.0)
 
-
+<a name="settings"/>
 
 ## ⚙️ Settings
 
@@ -113,7 +125,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 ### 🔐 Azure
 | Parameter  | Required | Description |
 |---------------------|:----------:|--------------------------------|
-|Endpoint| Yes | AI Document Intelligence Resource Endpoint |
+|Endpoint URL| Yes | AI Document Intelligence Resource Endpoint |
 |Key |Yes| Secret Key |
 
 <details>
@@ -136,6 +148,8 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 
 \* Required if ``Save as JSON`` is set to *true*.
 
+<a name="documentation"/>
+
 ## 📚 Documentation
 - [What is Azure AI Document Intelligence?](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/overview?view=doc-intel-4.0.0)
 - [Azure AI Document Intelligence documentation](https://learn.microsoft.com/en-US/azure/ai-services/document-intelligence/?view=doc-intel-4.0.0&viewFallbackFrom=form-recog-3.0.0&branch=release-build-cogserv-forms-recognizer)
@@ -143,6 +157,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 - [Language Support](https://learn.microsoft.com/en-GB/azure/ai-services/document-intelligence/language-support-ocr?view=doc-intel-4.0.0&tabs=read-print%2Clayout-print%2Cgeneral)
 - [Data Privacy](https://learn.microsoft.com/en-us/legal/cognitive-services/document-intelligence/data-privacy-security)
   
+<a name="change-log"/>
 
 ## 📝 Change Log
 * Version 1.0 (08JAN2024) 
