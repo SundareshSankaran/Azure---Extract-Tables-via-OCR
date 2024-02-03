@@ -3,7 +3,7 @@ try:
     from azure.core.credentials import AzureKeyCredential
     from azure.ai.documentintelligence import DocumentIntelligenceClient
     from azure.ai.documentintelligence.models import DocumentAnalysisFeature
-    from azure.ai.documentintelligence.models._models import AnalyzeResult
+    from azure.ai.documentintelligence.models._models import AnalyzeResult, AnalyzeDocumentRequest
 
     import pandas as pd
     import numpy as np
@@ -14,6 +14,7 @@ try:
     import re
     import os
     import uuid
+    from urllib.parse import urlparse
     from datetime import datetime
 except ImportError as e:
     print(f'ImportError - {e}. Please install the required packages!')
@@ -27,13 +28,15 @@ load_dotenv()
 # azure credentials
 azure_key = str(os.getenv('OCR_KEY'))
 azure_endpoint = str(os.getenv('OCR_ENDPOINT'))
+local_ocr = bool(0)                             # whether to use a locally deployed document intelligence container, default = False
+local_ocr_endpoint = str('http://localhost:5000') # endpoint of the locally deployed document intelligence container
 
 SERVICE_VERSION = '4.0'                         # 4.0 is in preview. Local containers are only supported in 3.0 (GA) thus far
 API_VERSION = '2023-10-31-preview'              # default: '2023-10-31-preview'- to lock the API version, in case breaking changes are introduced
 
 # general
 ocr_type = str('text')                          # type of OCR: text, form, query, tabel
-input_type = str('file')                        # type of input: file, url (only file supported for now)
+input_type = str('file')                         # type of input: file, url (only file supported for now)
 input_mode = str('batch')                       # single or batch
 file_path = str('data/table-test-document.pdf') # path to a (single) file
 input_table_name = None                         # name of table containing the file paths
@@ -57,7 +60,7 @@ query_fields = str("City, First name")          # string containing comma separa
 query_exclude_metadata = bool(True)             # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
 
 # for table extraction
-table_output_format = str('map')                # how the tables should be returned: map, reference*, table** *reference requires a caslib, **only one table per execution is supported
+table_output_format = str('map')                # how the tables should be returned: map, reference*, table** *reference requires a cas
 table_output_library = str('work')              # caslib to store the table (only relevant if table_output_format = 'reference')
 select_table = bool(False)                      # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
 table_selection_method = str('index')           # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
@@ -127,6 +130,23 @@ def prepare_query(query_list: str):
         
     return query_list
 
+
+    """ Check if a url is valid
+
+    Parameters:
+    -----------
+    url:
+        str: url to check
+    
+    Returns:
+    --------
+    bool: True if url is valid, False otherwise
+    """
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
 ###################### OCR STRATEGIES #####################
 # parent class for the OCR strategies
 class OCRStrategy:
@@ -145,9 +165,10 @@ class OCRStrategy:
 class ExtractText(OCRStrategy): 
     def __init__(self, ocr_client, kwargs):
         self.ocr_client = ocr_client
+        self.input_type = kwargs.get('input_type', 'file')
         self.text_granularity = kwargs.get('text_granularity', 'line')
         self.file_location = kwargs.get('file_location', 'local')
-        self.locale = kwargs.get('locale', 'en-US')
+        self.locale = kwargs.get('locale', '')
         self.model_id = kwargs.get('model_id', 'prebuilt-read')
 
     def parse_ocr_result(self, result) -> pd.DataFrame:
@@ -277,18 +298,26 @@ class ExtractText(OCRStrategy):
         Parameters:
         -----------
         document:
-            io.BytesIO|str: document to analyze
+            io.BytesIO|str: document or url to document to analyze
         
         Returns:
         --------
         parsed_result:
             pd.DataFrame: OCR results
          """
-        poller = self.ocr_client.begin_analyze_document( model_id = self.model_id, 
-                                                         analyze_request = document,
-                                                         content_type="application/octet-stream",
-                                                         #locale = self.locale
-                                                         )
+        if self.input_type.upper() == 'FILE':
+            poller = self.ocr_client.begin_analyze_document(model_id = self.model_id, 
+                                                            analyze_request = document,
+                                                            content_type="application/octet-stream",
+                                                            locale = self.locale
+                                                            )
+        elif self.input_type.upper() == 'URL':
+            poller = self.ocr_client.begin_analyze_document(model_id = self.model_id, 
+                                                            analyze_request = AnalyzeDocumentRequest(url_source=document),
+                                                            locale = self.locale
+                                                            )
+        
+        
         result = poller.result()
         
         return result
@@ -296,8 +325,9 @@ class ExtractText(OCRStrategy):
 class ExtractForm(OCRStrategy):
     def __init__(self, ocr_client, kwargs):
         self.ocr_client = ocr_client
+        self.input_type = kwargs.get('input_type', 'file')
         self.file_location = kwargs.get('file_location', 'local')
-        self.locale = kwargs.get('locale', 'en-US')
+        self.locale = kwargs.get('locale', '')
 
     def parse_ocr_result(self, result) -> pd.DataFrame:
         key_value_pairs = result.key_value_pairs
@@ -356,13 +386,21 @@ class ExtractForm(OCRStrategy):
         
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
     def analyze_document(self, document) -> AnalyzeResult:
-        poller = self.ocr_client.begin_analyze_document( model_id = "prebuilt-layout", 
+        
+        if self.input_type.upper() == 'FILE':
+            poller = self.ocr_client.begin_analyze_document( model_id = "prebuilt-layout", 
                                                         analyze_request = document,
                                                         content_type="application/octet-stream",
-                                                        #locale = self.locale,
+                                                        locale = self.locale,
                                                         features=['keyValuePairs']
                                                         )
         
+        elif self.input_type.upper() == 'URL':
+            poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+                                                            analyze_request = AnalyzeDocumentRequest(url_source=document),
+                                                            locale = self.locale,
+                                                            features=['keyValuePairs']
+                                                            )
         result = poller.result()
         
         return result
@@ -370,8 +408,9 @@ class ExtractForm(OCRStrategy):
 class ExtractQuery(OCRStrategy):
     def __init__(self, ocr_client, kwargs):
         self.ocr_client = ocr_client
+        self.input_type = kwargs.get('input_type', 'file')
         self.file_location = kwargs.get('file_location', 'local')
-        self.locale = kwargs.get('locale', 'en-US')
+        self.locale = kwargs.get('locale', '')
         self.query_fields = kwargs.get('query_fields', '')
         self.query_exclude_metadata = kwargs.get('query_exclude_metadata', False)
 
@@ -417,14 +456,22 @@ class ExtractQuery(OCRStrategy):
         
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
     def analyze_document(self, document) -> AnalyzeResult:
-        poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+        if self.input_type.upper() == 'FILE':
+            poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
                                                         analyze_request = document,
                                                         content_type = "application/octet-stream",
-                                                        #locale = self.locale,
+                                                        locale = self.locale,
                                                         features = [DocumentAnalysisFeature.QUERY_FIELDS],
                                                         query_fields = self.query_fields,
                                                         )
         
+        elif self.input_type.upper() == 'URL':
+            poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+                                                            analyze_request = AnalyzeDocumentRequest(url_source=document),
+                                                            locale = self.locale,
+                                                            features = [DocumentAnalysisFeature.QUERY_FIELDS],
+                                                            query_fields = self.query_fields,
+                                                            )
         result = poller.result()
 
         return result
@@ -432,8 +479,9 @@ class ExtractQuery(OCRStrategy):
 class ExtractTable(OCRStrategy):
     def __init__(self, ocr_client, kwargs): 
         self.ocr_client = ocr_client
+        self.input_type = kwargs.get('input_type', 'file')
         self.file_location = kwargs.get('file_location', 'local')
-        self.locale = kwargs.get('locale', 'en-US')
+        self.locale = kwargs.get('locale', '')
         self.table_output_format = kwargs.get('table_output_format', 'map')
         self.select_table = kwargs.get('select_table', False)
         self.table_selection_method = kwargs.get('table_selection_method', 'index')
@@ -572,15 +620,20 @@ class ExtractTable(OCRStrategy):
 
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
     def analyze_document(self, document) -> AnalyzeResult:
-        poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+        if self.input_type.upper() == 'FILE':
+            poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
                                                         analyze_request = document,
                                                         content_type = "application/octet-stream",
-                                                        #locale = self.locale,
+                                                        locale = self.locale,
                                                         )
         
-        result = poller.result()
+        elif self.input_type.upper() == 'URL':
+            poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+                                                            analyze_request = AnalyzeDocumentRequest(url_source=document),
+                                                            locale = self.locale
+                                                            )
 
-        return result
+        return poller.result()
 
 # class that processes the OCR
 class OCRProcessor:
@@ -632,7 +685,7 @@ class OCRProcessor:
         return self.strategy.parse_ocr_result(result)
     
 ###################### TEST DATA (FOR DEV) ######################
-data = {'file_path': ['data/Lorem ipsum - Generator und Informationen.html','data/letter-example.pdf'],
+data = {'file_path': ['data/handwritten-form.jpg','data/letter-example.pdf'],
         'filename': ['doc1', 'doc2']}
 
 form_data = {'file_path': ['data/patient_intake_form_sample.jpg'],
@@ -641,7 +694,10 @@ form_data = {'file_path': ['data/patient_intake_form_sample.jpg'],
 tabel_data = {'file_path': ['data/table-test-document.pdf'],
             'filename': ['doc1']}
 
-file_list = pd.DataFrame(data)
+url_data = {'file_path': ['https://raw.githubusercontent.com/Azure/azure-sdk-for-python/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms/receipt/contoso-receipt.png'],
+            'filename': ['doc1']}
+
+file_list = pd.DataFrame(url_data)
 path_column = 'file_path'
 
 # create a dataframe with all the file paths of a specified folder not as method yet
@@ -660,9 +716,13 @@ print(f'numer of files: {file_list.shape[0]}')
 
 ###################### PREP & PRE-CHECKS ######################
 
-if input_mode == 'batch' and input_type == 'file': # When input_mode = 'batch' and input_type = 'file
-	#file_list = SAS.sd2df(input_table_name)
-    pass
+if input_mode == 'batch': # When input_mode = 'batch' try to load the file list using the input_table_name
+    try:
+        #file_list = SAS.sd2df(input_table_name)
+        pass
+    except Exception as e:
+        #SAS.logMessage('No input table was provided!}', 'error')
+        pass
 else:
 	file_list = ''
 
@@ -706,13 +766,19 @@ if input_mode.upper() == 'SINGLE': # if input_mode = 'single', create a datafram
     file_list = pd.DataFrame({'file_path': [file_path]})
     path_column = 'file_path'
 
+if input_mode.upper() == 'BATCH': # if input_mode = 'batch' and input_type = 'file', check if the file list is not empty
+    if file_list.shape[0] < 1:
+        raise ValueError('Provided file list is empty!')
+        exit()
+
 ###################### EXECUTION ######################
 # define all possible parameters for the OCR
 ocr_params = {
               # general
-              'ocr_level': text_granularity,
               'locale': locale,
+              'input_type': input_type,
               # for text extraction
+              'ocr_level': text_granularity,
               'model_id': model_id,
               # for query extraction
               'query_fields': query_fields,
@@ -764,13 +830,20 @@ def process_files(file_list, ocr_processor, path_column):
         start = datetime.now()
 
         # perform the OCR
-        with open(row[path_column], 'rb') as document:
-            document = io.BytesIO(document.read())
+        if input_type.upper() == 'FILE':
+            with open(row[path_column], 'rb') as document:
+                document = io.BytesIO(document.read())
+        elif input_type.upper() == 'URL':
+            document = row[path_column]
+
+        else:
+            raise ValueError(f'Invalid input type: {input_type}!')
+        
         try:
-            # analyze the document
+            # run ocr processing on the document
             result = ocr_processor.analyze_document(document = document)
 
-            # parse the result to a dataframe
+            # parse the ocr result to a dataframe
             parsed_result = ocr_processor.parse_ocr_result(result = result)
 
             # append results to the dataframe
@@ -814,6 +887,10 @@ def process_files(file_list, ocr_processor, path_column):
 # Parallel processing of the files
 df_split = np.array_split(file_list, n_threads)
 threads = []
+
+if file_list.shape[0] < n_threads:
+    n_threads = file_list.shape[0]
+
 for i in range(n_threads):
     paths = df_split[i]
     thread = threading.Thread(target=process_files, args=(paths, ocr_processor, path_column))
