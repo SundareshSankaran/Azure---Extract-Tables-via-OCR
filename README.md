@@ -32,12 +32,12 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 [IN PROGRESS]
 [![YOUTUBE THUMBNAIL](<img/thumbnail azure ocr custom step.jpg>)](https://youtu.be/RP0CHuIbVGE)
 
-### Supported File Types
+### Supported Input Types
 
-| Model       | PDF | Image[^1] |
-|---------------|----------|----------------------------------------|
-| Read   | ✅   |  ✅                                               |
-| Layout | ✅   | ✅                                      | 
+| Model       | PDF | Image[^1] | URL
+|---------------|:----------:|:----------:|:------------------:|
+| Read   | ✅   |  ✅   | ✅    |
+| Layout | ✅   |  ✅   | ✅    | 
 
 
 [^1]: JPEG/JPG, PNG, BMP, TIFF, HEIF
