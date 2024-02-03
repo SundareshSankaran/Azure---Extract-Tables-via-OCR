@@ -78,7 +78,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 |-------------|:---------------:|------------------------------------------------------------------|
 | OCR Type    | Yes           | Defines the type of Optical Character Recognition (OCR) to use   |
 | Input Mode  | Yes           | Indicates if processing a list of files or a single file         |
-| Input Type  | Yes           | Indicates if local documents or document URLS are used as input        |
+| Input Type  | Yes           | Indicates if local documents or document URLs are used as input        |
 | File Path   | No*           | The file path for processing a single file                       |
 | Input Table | No†           | The name of the table containing file paths/URLs for batch processing |
 | Path Column | No†           | The column in the input table that contains the file path/URL    |
@@ -140,7 +140,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 
 | Parameter  | Required | Description |
 |---------------------|:----------:|--------------------------------|
-|Force Language| No |Option to force Document Intelligence to use only a specific language. Note: Languages are detected automatically by default.|
+|Force Language| No |Option to force Document Intelligence to use only a specific language for OCR. Note: Languages are detected automatically by default.|
 |Number of Retries| No |How many retries attempts before a document is skipped|
 |Seconds between retries|No| How many seconds between retry attempts|
 |Number of Threads|No|How many Python threads will be used to process all files.|
