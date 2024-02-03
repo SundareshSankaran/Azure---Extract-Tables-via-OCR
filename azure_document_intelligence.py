@@ -36,12 +36,12 @@ API_VERSION = '2023-10-31-preview'              # default: '2023-10-31-preview'-
 
 # general
 ocr_type = str('text')                          # type of OCR: text, form, query, tabel
-input_type = str('file')                         # type of input: file, url (only file supported for now)
+input_type = str('file')                        # type of input: file, url 
 input_mode = str('batch')                       # single or batch
 file_path = str('data/table-test-document.pdf') # path to a (single) file
 input_table_name = None                         # name of table containing the file paths
 path_column = str('')                           # column that contains the file path
-locale = str('en-US')                           # optional, language of the document [ToDo]
+locale = str('en')                              # optional, language of the document. Support-list: https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/language-support-ocr?view=doc-intel-4.0.0&tabs=read-hand%2Clayout-print%2Cgeneral
 
 n_threads = int(32)                             # number of threads to use for parallel processing
 n_con_retry = int(3)                            # number of retries if connection fails
