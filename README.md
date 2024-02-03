@@ -34,10 +34,13 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 
 ### Supported Input Types
 
-| Model       | PDF | Image[^1] | URL
-|---------------|:----------:|:----------:|:------------------:|
-| Read   | ✅   |  ✅   | ✅    |
-| Layout | ✅   |  ✅   | ✅    | 
+| Extraction        | PDF | Image[^1] | URL           |
+|--------------|:---:|:---------:|:-------------:|
+| Text         |  ✅  |     ✅    |       ✅      |
+| Form         |  ✅  |     ✅    |       ✅      |
+| Query        |  ✅  |     ✅    |       ✅      |
+| Table        |  ✅  |     ✅    |       ✅      |
+
 
 
 [^1]: JPEG/JPG, PNG, BMP, TIFF, HEIF
