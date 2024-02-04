@@ -52,8 +52,8 @@ save_json = bool(False)                         # whether to save the json outpu
 json_output_folder = str('output')              # folder to save the json output
 
 # for text extraction
-text_granularity = str('document')                  # level of detail: word, line, paragraph, page, document
-model_id = str('prebuilt-layout')                 # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
+text_granularity = str('document')               # level of detail: word, line, paragraph, page, document
+model_id = str('prebuilt-layout')                # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
 
 # for query extraction
 query_fields = str("City, First name")          # string containing comma separated keys to extract
@@ -731,9 +731,8 @@ def get_file_list(folder_path):
 #file_list = get_file_list('data')
 print(f'numer of files: {file_list.shape[0]}')
 
-###################### PREP & PRE-CHECKS ######################
-
-if input_mode == 'batch': # When input_mode = 'batch' try to load the file list using the input_table_name
+###################### PREPARATION ######################
+if input_mode.upper() == 'BATCH':                       # When input_mode = 'batch' try to load the file list using the input_table_name
     try:
         #file_list = SAS.sd2df(input_table_name)
         pass
@@ -742,15 +741,7 @@ if input_mode == 'batch': # When input_mode = 'batch' try to load the file list 
         pass
 else:
 	file_list = ''
-
-if input_mode == 'single':  # When input type is 'file'
-	try:
-		ocr_document_path = file_path.split(':', 1)[1]
-	except Exception as e:
-		#SAS.logMessage("Please select a valid path. Files have to be located on SAS Server (not SAS Content)!", 'error')
-		exit()
-
-if ocr_type.upper() == 'QUERY': # prepare the query string to the right format
+if ocr_type.upper() == 'QUERY':                         # prepare the query string to the right format
     try:
         query_fields = prepare_query(query_fields)
     except ValueError as e:
@@ -758,9 +749,11 @@ if ocr_type.upper() == 'QUERY': # prepare the query string to the right format
         exit()
     except Exception as e:
         print(f'ERROR: {e}')
-        exit()
-    
-if save_json: # check if output folder should be created (if save_json = True)
+        exit()  
+if input_mode.upper() == 'SINGLE':                      # if input_mode = 'single', create a dataframe with the file path
+    file_list = pd.DataFrame({'file_path': [file_path]})
+    path_column = 'file_path'
+if save_json:                                           # check if output folder should be created (if save_json = True)
     # check if output folder exists
     if not os.path.exists(json_output_folder):
         try:
@@ -775,18 +768,20 @@ if save_json: # check if output folder should be created (if save_json = True)
         raise OSError(f'OSError - Output folder {json_output_folder} is not writable!')
         exit()
 
-if table_output_format.upper() == 'TABLE' and file_list.shape[0] > 1: # if table_output_format = 'table', check if only one row in the file_list
+
+###################### PRE-CHECKS ######################
+if input_mode.upper() == 'SINGLE':                                      # When input type is 'file' check if the file is located on the server not SAS Content
+	try:
+		ocr_document_path = file_path.split(':', 1)[1]
+	except Exception as e:
+		#SAS.logMessage("Please select a valid path. Files have to be located on SAS Server (not SAS Content)!", 'error')
+		exit()
+if table_output_format.upper() == 'TABLE' and file_list.shape[0] > 1:   # if table_output_format = 'table', check if only one row in the file_list
     raise ValueError('Only one file is supported if table_output_format = "table"!')
     exit()
-
-if input_mode.upper() == 'SINGLE': # if input_mode = 'single', create a dataframe with the file path
-    file_list = pd.DataFrame({'file_path': [file_path]})
-    path_column = 'file_path'
-
-if input_mode.upper() == 'BATCH': # if input_mode = 'batch' and input_type = 'file', check if the file list is not empty
-    if file_list.shape[0] < 1:
-        raise ValueError('Provided file list is empty!')
-        exit()
+if input_mode.upper() == 'BATCH' and file_list.shape[0] < 1:            # if input_mode = 'batch' and input_type = 'file', check if the file list is not empty
+    raise ValueError('Provided file list is empty!')
+    exit()
 
 ###################### EXECUTION ######################
 # define all possible parameters for the OCR
@@ -929,13 +924,6 @@ if output_status_table:
     #SAS.df2sd(status, SAS.symget("_output2"))
     pass
 
-
 # print & save the results (dev only)
 ocr_results.to_csv('ocr_results.csv')
 status.to_csv('ocr_status.csv')
-
- 
-
-
-
-    
