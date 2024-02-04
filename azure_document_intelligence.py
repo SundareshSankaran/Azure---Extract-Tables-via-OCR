@@ -147,6 +147,7 @@ def prepare_query(query_list: str):
         return all([result.scheme, result.netloc])
     except ValueError:
         return False
+
 ###################### OCR STRATEGIES #####################
 # parent class for the OCR strategies
 class OCRStrategy:
@@ -520,7 +521,6 @@ class ExtractTable(OCRStrategy):
             tables.append(table_df)
         return tables
 
-
     # TABLE PARSING METHODS
     def map_parsing(self, result) -> pd.DataFrame:
         tables = []
@@ -619,7 +619,6 @@ class ExtractTable(OCRStrategy):
                 raise ValueError(f'Invalid table selection method: {self.table_selection_method}')
 
         return parsed_result
-
 
     # TABLE PARSING METHODS MAPPING
     parsing_methods = {
@@ -767,7 +766,6 @@ if save_json:                                           # check if output folder
     if not os.access(json_output_folder, os.W_OK):
         raise OSError(f'OSError - Output folder {json_output_folder} is not writable!')
         exit()
-
 
 ###################### PRE-CHECKS ######################
 if input_mode.upper() == 'SINGLE':                                      # When input type is 'file' check if the file is located on the server not SAS Content
