@@ -52,8 +52,8 @@ save_json = bool(False)                         # whether to save the json outpu
 json_output_folder = str('output')              # folder to save the json output
 
 # for text extraction
-text_granularity = str('word')                  # level of detail: word, line, paragraph, page
-model_id = str('prebuilt-read')                 # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
+text_granularity = str('paragraph')                  # level of detail: word, line, paragraph, page
+model_id = str('prebuilt-layout')                 # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
 
 # for query extraction
 query_fields = str("City, First name")          # string containing comma separated keys to extract
@@ -171,7 +171,7 @@ class ExtractText(OCRStrategy):
         self.locale = kwargs.get('locale', '')
         self.model_id = kwargs.get('model_id', 'prebuilt-read')
 
-    def parse_ocr_result(self, result) -> pd.DataFrame:
+    def parse_ocr_result_old(self, result) -> pd.DataFrame:
 
         # azure doesn't provide results on page level natively
         level = self.text_granularity
@@ -291,6 +291,136 @@ class ExtractText(OCRStrategy):
 
         return df
 
+    def parse_ocr_result(self, result) -> pd.DataFrame:
+        parsed_result = pd.DataFrame()
+
+        # azure doesn't provide results on page level natively
+        level = self.text_granularity
+        if (level.upper() == 'PAGE'):
+            self.text_granularity = "LINE"
+        else:
+            self.text_granularity = level.upper()
+
+        print(f'Granularity: {self.text_granularity}')
+        for page in result['pages']:
+            try:
+                contains_handwriting = result.styles[0].is_handwritten
+            except:
+                contains_handwriting = False
+
+            ocr_data = []
+            
+            # to calculate the average confidence
+            if text_granularity != "WORD":
+                word_confidences = [word['confidence'] for word in page['words']]
+                total_confidence = sum(word_confidences)
+                total_words = len(word_confidences)
+                average_confidence = total_confidence / total_words if total_words > 0 else 0
+                
+            # extraction of (natively provided) results 
+            if self.text_granularity == "PARAGRPAH":
+                for paragraph_idx, paragraph in enumerate(result['paragraphs']):
+                    x1, y1, x2, y2, x3, y3, x4, y4 = paragraph['boundingRegions'][0]['polygon']
+
+                    try: 
+                        role = paragraph['role']
+                    except:
+                        role = ''
+
+
+                    paragrpah_info = {
+                        "page": paragraph['boundingRegions'][0]['pageNumber'],
+                        "paragraph": paragraph_idx,
+                        "text": paragraph['content'],
+                        "role": role,
+                        "bb_x1": x1,
+                        "bb_y1": y1,
+                        "bb_x2": x2,
+                        "bb_y2": y2,
+                        "bb_x3": x3,
+                        "bb_y3": y3,
+                        "bb_x4": x4,
+                        "bb_y4": y4,
+                        "offset": paragraph['spans'][0]['offset'],
+                        "length": paragraph['spans'][0]['length'],
+                        
+                    }
+                    
+                    ocr_data.append(paragrpah_info)
+
+            elif self.text_granularity == "LINE":
+                for line_idx, line in enumerate(page['lines']):
+                    x1, y1, x2, y2, x3, y3, x4, y4 = line['polygon']
+
+                    line_info = {
+                        "page": page['pageNumber'],
+                        "line": line_idx,
+                        "text": line['content'],
+                        "bb_x1": x1,
+                        "bb_y1": y1,
+                        "bb_x2": x2,
+                        "bb_y2": y2,
+                        "bb_x3": x3,
+                        "bb_y3": y3,
+                        "bb_x4": x4,
+                        "bb_y4": y4,
+                        "offset": line['spans'][0]['offset'],
+                        "length": line['spans'][0]['length'],
+                    }
+                    
+                    ocr_data.append(line_info)
+
+            elif self.text_granularity == "WORD":
+                for word in page.words:
+                    x1, y1, x2, y2, x3, y3, x4, y4 = word['polygon']
+
+                    word_info = {
+                        "page": page['pageNumber'],
+                        "text": word['content'],
+                        "confidence": word['confidence'],
+                        "bb_x1": x1,
+                        "bb_y1": y1,
+                        "bb_x2": x2,
+                        "bb_y2": y2,
+                        "bb_x3": x3,
+                        "bb_y3": y3,
+                        "bb_x4": x4,
+                        "bb_y4": y4,
+                        "offset": word['span']['offset'],
+                        "length": word['span']['length'],
+                        }
+                    
+                    ocr_data.append(word_info)
+            
+            df = pd.DataFrame(ocr_data)
+
+            # in case texts should be aggreagted on page level
+            if level.upper() == "PAGE":
+                ocr_data = []
+                page_info = {
+                        "page": page['pageNumber'],
+                        "text": "\n ".join(df['text']),
+                        "avg_confidence": average_confidence,
+                        "contains_handwriting": contains_handwriting,
+                        "bb_x1": df["bb_x1"].min(),
+                        "bb_y1": df["bb_y1"].min(),
+                        "bb_x2": df["bb_x2"].max(),
+                        "bb_y2": df["bb_y2"].min(),
+                        "bb_x3": df["bb_x3"].max(),
+                        "bb_y3": df["bb_y3"].max(),
+                        "bb_x4": df["bb_x4"].min(),
+                        "bb_x4": df["bb_x4"].max(),
+                        }
+                ocr_data.append(page_info)
+                
+                df = pd.DataFrame(ocr_data)
+
+            parsed_result = pd.concat([parsed_result, df], ignore_index=True)
+
+        if self.model_id == 'prebuilt-read' and text_granularity.upper() == 'PARAGRAPH': # 'read' model doesn't provide semantic role, only 'layout' does
+            parsed_result = parsed_result.drop(columns=['role'])
+
+        return df
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
     def analyze_document(self, document) -> AnalyzeResult:
         """ Analyze the document and return the result
@@ -685,7 +815,7 @@ class OCRProcessor:
         return self.strategy.parse_ocr_result(result)
     
 ###################### TEST DATA (FOR DEV) ######################
-data = {'file_path': ['data/handwritten-form.jpg','data/letter-example.pdf'],
+data = {'file_path': ['data/german-handwriting-sample.jpeg','data/letter-example.pdf'],
         'filename': ['doc1', 'doc2']}
 
 form_data = {'file_path': ['data/patient_intake_form_sample.jpg'],
@@ -697,7 +827,7 @@ tabel_data = {'file_path': ['data/table-test-document.pdf'],
 url_data = {'file_path': ['https://raw.githubusercontent.com/Azure/azure-sdk-for-python/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms/receipt/contoso-receipt.png'],
             'filename': ['doc1']}
 
-file_list = pd.DataFrame(url_data)
+file_list = pd.DataFrame(data)
 path_column = 'file_path'
 
 # create a dataframe with all the file paths of a specified folder not as method yet
@@ -711,7 +841,7 @@ def get_file_list(folder_path):
     file_list = [file for file in file_list if file.endswith(('.pdf', '.jpg', '.jpeg', '.png', '.docx'))]
     return pd.DataFrame({'file_path': file_list})
 
-file_list = get_file_list('data')
+#file_list = get_file_list('data')
 print(f'numer of files: {file_list.shape[0]}')
 
 ###################### PREP & PRE-CHECKS ######################
@@ -778,7 +908,7 @@ ocr_params = {
               'locale': locale,
               'input_type': input_type,
               # for text extraction
-              'ocr_level': text_granularity,
+              'text_granularity': text_granularity,
               'model_id': model_id,
               # for query extraction
               'query_fields': query_fields,
