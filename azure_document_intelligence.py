@@ -171,16 +171,18 @@ class ExtractText(OCRStrategy):
         self.locale = kwargs.get('locale', '')
         self.model_id = kwargs.get('model_id', 'prebuilt-read')
 
-    def parse_ocr_result_old(self, result) -> pd.DataFrame:
+    def parse_ocr_result(self, result) -> pd.DataFrame:
+        parsed_result = pd.DataFrame()
 
         # azure doesn't provide results on page level natively
         level = self.text_granularity
-        if (level.upper() == "PAGE"):
-            text_granularity = "LINE"
+        if (level.upper() == 'PAGE'):
+            self.text_granularity = "LINE"
         else:
-            text_granularity = level.upper()
+            self.text_granularity = level.upper()
 
-        for page in result.pages:
+        print(f'Granularity: {self.text_granularity}')
+        for page in result['pages']:
             try:
                 contains_handwriting = result.styles[0].is_handwritten
             except:
@@ -190,21 +192,27 @@ class ExtractText(OCRStrategy):
             
             # to calculate the average confidence
             if text_granularity != "WORD":
-                word_confidences = [word.confidence for word in page.words]
+                word_confidences = [word['confidence'] for word in page['words']]
                 total_confidence = sum(word_confidences)
                 total_words = len(word_confidences)
                 average_confidence = total_confidence / total_words if total_words > 0 else 0
                 
             # extraction of (natively provided) results 
-            if text_granularity == "PARAGRPAH":
-                for paragraph_idx, paragraph in enumerate(result.paragraphs):
-                    x1, y1, x2, y2, x3, y3, x4, y4 = paragraph.bounding_regions[0].polygon
+            if self.text_granularity == "PARAGRPAH":
+                for paragraph_idx, paragraph in enumerate(result['paragraphs']):
+                    x1, y1, x2, y2, x3, y3, x4, y4 = paragraph['boundingRegions'][0]['polygon']
+
+                    try: 
+                        role = paragraph['role']
+                    except:
+                        role = ''
+
 
                     paragrpah_info = {
-                        "page": paragraph.bounding_regions[0].page_number,
+                        "page": paragraph['boundingRegions'][0]['pageNumber'],
                         "paragraph": paragraph_idx,
-                        "text": paragraph.content,
-                        "role": paragraph.role,
+                        "text": paragraph['content'],
+                        "role": role,
                         "bb_x1": x1,
                         "bb_y1": y1,
                         "bb_x2": x2,
@@ -213,20 +221,21 @@ class ExtractText(OCRStrategy):
                         "bb_y3": y3,
                         "bb_x4": x4,
                         "bb_y4": y4,
-                        "offset": paragraph.spans[0].offset,
-                        "length": paragraph.spans[0].length,
+                        "offset": paragraph['spans'][0]['offset'],
+                        "length": paragraph['spans'][0]['length'],
+                        
                     }
                     
                     ocr_data.append(paragrpah_info)
 
-            elif text_granularity == "LINE":
-                for line_idx, line in enumerate(page.lines):
-                    x1, y1, x2, y2, x3, y3, x4, y4 = line.polygon
+            elif self.text_granularity == "LINE":
+                for line_idx, line in enumerate(page['lines']):
+                    x1, y1, x2, y2, x3, y3, x4, y4 = line['polygon']
 
                     line_info = {
-                        "page": page.page_number,
+                        "page": page['pageNumber'],
                         "line": line_idx,
-                        "text": line.content,
+                        "text": line['content'],
                         "bb_x1": x1,
                         "bb_y1": y1,
                         "bb_x2": x2,
@@ -235,20 +244,20 @@ class ExtractText(OCRStrategy):
                         "bb_y3": y3,
                         "bb_x4": x4,
                         "bb_y4": y4,
-                        "offset": line.spans[0].offset,
-                        "length": line.spans[0].length,
+                        "offset": line['spans'][0]['offset'],
+                        "length": line['spans'][0]['length'],
                     }
                     
                     ocr_data.append(line_info)
 
-            elif text_granularity == "WORD":
+            elif self.text_granularity == "WORD":
                 for word in page.words:
-                    x1, y1, x2, y2, x3, y3, x4, y4 = word.polygon
+                    x1, y1, x2, y2, x3, y3, x4, y4 = word['polygon']
 
                     word_info = {
-                        "page": page.page_number,
-                        "text": word.content,
-                        "confidence": word.confidence,
+                        "page": page['pageNumber'],
+                        "text": word['content'],
+                        "confidence": word['confidence'],
                         "bb_x1": x1,
                         "bb_y1": y1,
                         "bb_x2": x2,
@@ -257,8 +266,8 @@ class ExtractText(OCRStrategy):
                         "bb_y3": y3,
                         "bb_x4": x4,
                         "bb_y4": y4,
-                        "offset": word.spans[0].offset,
-                        "length": word.spans[0].length,
+                        "offset": word['span']['offset'],
+                        "length": word['span']['length'],
                         }
                     
                     ocr_data.append(word_info)
@@ -269,9 +278,9 @@ class ExtractText(OCRStrategy):
             if level.upper() == "PAGE":
                 ocr_data = []
                 page_info = {
-                        "page": page.page_number,
+                        "page": page['pageNumber'],
                         "text": "\n ".join(df['text']),
-                        "confidence": average_confidence,
+                        "avg_confidence": average_confidence,
                         "contains_handwriting": contains_handwriting,
                         "bb_x1": df["bb_x1"].min(),
                         "bb_y1": df["bb_y1"].min(),
@@ -286,10 +295,12 @@ class ExtractText(OCRStrategy):
                 
                 df = pd.DataFrame(ocr_data)
 
-        if self.model_id == 'prebuilt-read' and self.text_granularity.upper() == 'PARAGRAPH': # 'read' model doesn't provide semantic role, only 'layout' does
+            parsed_result = pd.concat([parsed_result, df], ignore_index=True)
+
+        if self.model_id == 'prebuilt-read' and text_granularity.upper() == 'PARAGRAPH': # 'read' model doesn't provide semantic role, only 'layout' does
             parsed_result = parsed_result.drop(columns=['role'])
 
-        return df
+        return parsed_result
 
     def parse_ocr_result(self, result) -> pd.DataFrame:
         parsed_result = pd.DataFrame()
@@ -420,7 +431,9 @@ class ExtractText(OCRStrategy):
         if self.model_id == 'prebuilt-read' and text_granularity.upper() == 'PARAGRAPH': # 'read' model doesn't provide semantic role, only 'layout' does
             parsed_result = parsed_result.drop(columns=['role'])
 
-        return df
+        return parsed_result
+
+	
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
     def analyze_document(self, document) -> AnalyzeResult:
         """ Analyze the document and return the result
