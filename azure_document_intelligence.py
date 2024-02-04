@@ -32,7 +32,7 @@ local_ocr = bool(0)                             # whether to use a locally deplo
 local_ocr_endpoint = str('http://localhost:5000') # endpoint of the locally deployed document intelligence container
 
 SERVICE_VERSION = '4.0'                         # 4.0 is in preview. Local containers are only supported in 3.0 (GA) thus far
-API_VERSION = '2023-10-31-preview'              # default: '2023-10-31-preview'- to lock the API version, in case breaking changes are introduced
+API_VERSION = '2023-10-31-preview'              # default: '2023-10-31-preview'- to lock the API version, in case breaking change are introduced
 
 # general
 ocr_type = str('text')                          # type of OCR: text, form, query, tabel
