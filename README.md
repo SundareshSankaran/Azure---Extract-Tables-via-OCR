@@ -171,6 +171,10 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 |---------------------|:----------:|--------------------------------|
 |Endpoint URL| Yes | AI Document Intelligence Resource Endpoint |
 |Key |Yes| Secret Key |
+|Local Container |No| Whether or not to use a locally deployed Document Intelligence container. Please make sure to deploy the `General Document` container.   |
+|Container Endpoint |No*| URL and Port of the locally deployed container.|
+
+\* Required if `Local Container` is set to `True`. <br>
 
 <details>
   <summary style="font-weight: bold;">👉Where to find resource key and endpoint</summary>
@@ -201,6 +205,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 - [Pricing](https://azure.microsoft.com/en-us/pricing/details/ai-document-intelligence/#pricing)
 - [Language Support](https://learn.microsoft.com/en-GB/azure/ai-services/document-intelligence/language-support-ocr?view=doc-intel-4.0.0&tabs=read-print%2Clayout-print%2Cgeneral)
 - [Data Privacy](https://learn.microsoft.com/en-us/legal/cognitive-services/document-intelligence/data-privacy-security)
+- [Install and Run Local Document Intelligence Containers](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/containers/install-run?view=doc-intel-3.0.0&preserve-view=true&tabs=general-document#run-the-container-with-the-docker-compose-up-command)
   
 <a name="change-log"/>
 

@@ -35,20 +35,23 @@ This code is a docker compose example to run the Document Intelligence **Read co
 ```yml
 version: "3.9"
 services:
-  azure-form-recognizer-read:
-    container_name: azure-form-recognizer-read
-    image: mcr.microsoft.com/azure-cognitive-services/form-recognizer/read-3.0
+  azure-cognitive-service-document:
+    container_name: azure-cognitive-service-document
+    image: mcr.microsoft.com/azure-cognitive-services/form-recognizer/document-3.0
     environment:
-      - EULA=accept
-      - billing={FORM_RECOGNIZER_ENDPOINT_URI}
-      - apiKey={FORM_RECOGNIZER_KEY}
+        - EULA=accept
+        - billing={FORM_RECOGNIZER_ENDPOINT_URI}
+        - apiKey={FORM_RECOGNIZER_KEY}
+        - AzureCognitiveServiceLayoutHost=http://azure-cognitive-service-layout:5000
     ports:
-      - "5000:5000"
-    networks:
-      - ocrvnet
-networks:
-  ocrvnet:
-    driver: bridge
+      - "5000:5050"
+  azure-cognitive-service-layout:
+     container_name: azure-cognitive-service-layout
+     image: mcr.microsoft.com/azure-cognitive-services/form-recognizer/layout-3.0
+     environment:
+         - EULA=accept
+         - billing={FORM_RECOGNIZER_ENDPOINT_URI}
+         - apiKey={FORM_RECOGNIZER_KEY}
 ```
 With your terminal at the location of the docker-compose file, execute the following command to start the service.
 ```bash
