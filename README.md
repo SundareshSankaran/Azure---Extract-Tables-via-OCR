@@ -32,18 +32,61 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 [IN PROGRESS]
 [![YOUTUBE THUMBNAIL](<img/thumbnail azure ocr custom step.jpg>)](https://youtu.be/RP0CHuIbVGE)
 
-### Supported Input Types
+### Feature Matrix
 
-| Extraction        | PDF | Image[^1] | URL           |
-|--------------|:---:|:---------:|:-------------:|
-| Text         |  ✅  |     ✅    |       ✅      |
-| Form         |  ✅  |     ✅    |       ✅      |
-| Query        |  ✅  |     ✅    |       ✅      |
-| Table        |  ✅  |     ✅    |       ✅      |
+<table>
 
+  <tr>
+    <td></td>
+    <td colspan="3" align="center">File Formats</td>
+    <td colspan="2" align="center">Execution Enviroment</td>
+  </tr>
+  <tr>
+    <th>Extraction</th>
+    <th>PDF</th>
+    <th>Image<sup>1</sup></th>
+    <th style="border-right: 1px solid #FFF;">URL</th>
+    <th>Azure<sup>2</sup></th>
+    <th>Local Container<sup>3</sup></th>
+  </tr>
+  <tr>
+    <td>Text</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+    <td align="center" style="border-right: 1px solid #FFF;">✅</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+  </tr>
+  <tr>
+    <td>Form</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+    <td align="center" style="border-right: 1px solid #FFF;">✅</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+  </tr>
+  <tr>
+    <td>Query</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+    <td align="center" style="border-right: 1px solid #FFF;">✅</td>
+    <td align="center">✅</td>
+    <td align="center"></td>
+  </tr>
+  <tr>
+    <td>Table</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+    <td align="center" style="border-right: 1px solid #FFF;">✅</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+  </tr>
+</table>
 
+$^1$ JPEG/JPG, PNG, BMP, TIFF, HEIF
+| $^2$ API-Version `2023-10-31-preview` (4.0) 
+| $^3$ API-Version `2022-08-31` (3.0)
 
-[^1]: JPEG/JPG, PNG, BMP, TIFF, HEIF
 ### Test data
 - [Sample forms on Github](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms)
 - [Handwritten Form Sample](https://www.nist.gov/image/sd19jpg)
