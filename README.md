@@ -39,7 +39,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
   <tr>
     <td></td>
     <td colspan="3" align="center">File Formats</td>
-    <td colspan="2" align="center">Execution Enviroment</td>
+    <td colspan="2" align="center">OCR Processing</td>
   </tr>
   <tr>
     <th>Extraction</th>
