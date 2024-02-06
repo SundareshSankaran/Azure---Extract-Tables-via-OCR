@@ -87,7 +87,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 $^1$ JPEG/JPG, PNG, BMP, TIFF, HEIF
 | $^2$ API-Version `2023-10-31-preview` (4.0) 
 | $^3$ API-Version `2022-08-31` (3.0) <br>
-$^4$ Only support `General Document` Model / Container
+$^4$ Only supports `General Document` Model / Container
 
 ### Test data
 - [Sample forms on Github](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms)
