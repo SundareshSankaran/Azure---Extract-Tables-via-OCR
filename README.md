@@ -136,7 +136,7 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
   
 | Parameter            | Required | Description                                                                                     |
 |----------------------|:--------:|-------------------------------------------------------------------------------------------------|
-| Granularity |    Yes     | Defines granularity of the text output (e.g. word, line, paragrpah, page).  Has implications regarding extraction output (e.g. 'role' only for paragraphs, 'confidence' only for words/pages)<ul><li>**word** -  includes *confidence* value</li><li>**line** - text line per row</li><li>**paragraph** - includes 'role' of a given paragraph (heading, etc..)</li><li>**page** - everything one one page</li></ul> |
+| Granularity |    Yes     | Defines granularity of the text output (e.g. word, line, paragrpah, page).  Has implications regarding extraction output (e.g. 'role' only for paragraphs, 'confidence' only for words/pages)<ul><li>**word** -  includes *confidence* value</li><li>**line** - text line per row</li><li>**paragraph** - blocks of text, can include 'role' of a given paragraph (heading, etc..)</li><li>**page** - everything one one page</li><li>**document** - everything in the document</li></ul> |
 
 </details>
 
