@@ -7,6 +7,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 - ✅ Form Extraction (key-value pairs)
 - ✅ Query Extraction (extraction of specified keys)
 - ✅ Table Extraction
+- ✅ Local Container Support
 - ✅ Paralel Execution (threading)
 
 ## 📖 Contents

@@ -29,14 +29,14 @@ load_dotenv()
 # azure credentials
 azure_key = str(os.getenv('OCR_KEY'))
 azure_endpoint = str(os.getenv('OCR_ENDPOINT'))
-local_ocr = bool(0)                             # whether to use a locally deployed document intelligence container, default = False
+local_ocr = bool(1)                             # whether to use a locally deployed document intelligence container, default = False
 local_ocr_endpoint = str('http://localhost:5000') # endpoint of the locally deployed document intelligence container
 
 SERVICE_VERSION = '4.0'                         # 4.0 is in preview. Local containers are only supported in 3.0 (GA) thus far
 API_VERSION = '2023-10-31-preview'              # default: '2023-10-31-preview'- to lock the API version, in case breaking change are introduced
 
 # general
-ocr_type = str('query')                          # type of OCR: text, form, query, table
+ocr_type = str('text')                          # type of OCR: text, form, query, table
 input_type = str('file')                        # type of input: file, url 
 input_mode = str('batch')                       # single or batch
 file_path = str('data/table-test-document.pdf') # path to a (single) file
@@ -342,7 +342,7 @@ class ExtractText(OCRStrategy):
             
             result = poller.result()
         else:
-            url = f"{self.endpoint}/formrecognizer/documentModels/prebuilt-read:syncAnalyze?api-version=2022-08-31"
+            url = f"{self.endpoint}/formrecognizer/documentModels/prebuilt-document:syncAnalyze?api-version=2022-08-31"
             headers = {
                 'accept': '*/*',
                 'Content-Type': 'application/octet-stream',
@@ -761,7 +761,7 @@ tabel_data = {'file_path': ['data/table-test-document.pdf'],
 url_data = {'file_path': ['https://raw.githubusercontent.com/Azure/azure-sdk-for-python/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms/receipt/contoso-receipt.png'],
             'filename': ['doc1']}
 
-file_list = pd.DataFrame(form_data)
+file_list = pd.DataFrame(data)
 path_column = 'file_path'
 
 # create a dataframe with all the file paths of a specified folder not as method yet
