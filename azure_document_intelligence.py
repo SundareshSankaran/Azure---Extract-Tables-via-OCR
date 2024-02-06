@@ -35,7 +35,7 @@ SERVICE_VERSION = '4.0'                         # 4.0 is in preview. Local conta
 API_VERSION = '2023-10-31-preview'              # default: '2023-10-31-preview'- to lock the API version, in case breaking change are introduced
 
 # general
-ocr_type = str('text')                          # type of OCR: text, form, query, tabel
+ocr_type = str('table')                          # type of OCR: text, form, query, tabel
 input_type = str('file')                        # type of input: file, url 
 input_mode = str('batch')                       # single or batch
 file_path = str('data/table-test-document.pdf') # path to a (single) file
@@ -52,7 +52,7 @@ save_json = bool(False)                         # whether to save the json outpu
 json_output_folder = str('output')              # folder to save the json output
 
 # for text extraction
-text_granularity = str('document')               # level of detail: word, line, paragraph, page, document
+text_granularity = str('paragraph')               # level of detail: word, line, paragraph, page, document
 model_id = str('prebuilt-layout')                # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
 
 # for query extraction
@@ -60,7 +60,7 @@ query_fields = str("City, First name")          # string containing comma separa
 query_exclude_metadata = bool(True)             # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
 
 # for table extraction
-table_output_format = str('map')                # how the tables should be returned: map, reference*, table** *reference requires a cas
+table_output_format = str('reference')                # how the tables should be returned: map, reference*, table** *reference requires a cas
 table_output_library = str('work')              # caslib to store the table (only relevant if table_output_format = 'reference')
 select_table = bool(False)                      # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
 table_selection_method = str('index')           # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
@@ -213,8 +213,8 @@ class ExtractText(OCRStrategy):
                 paragrpah_info = {
                     "page": paragraph['boundingRegions'][0]['pageNumber'],
                     "paragraph": paragraph_idx,
-                    "text": paragraph['content'],
                     "role": role,
+                    "text": paragraph['content'], 
                     "bb_x1": x1,
                     "bb_y1": y1,
                     "bb_x2": x2,
@@ -225,7 +225,6 @@ class ExtractText(OCRStrategy):
                     "bb_y4": y4,
                     "offset": paragraph['spans'][0]['offset'],
                     "length": paragraph['spans'][0]['length'],
-                    
                 }
                 
                 ocr_data.append(paragrpah_info)
@@ -348,27 +347,25 @@ class ExtractForm(OCRStrategy):
         self.locale = kwargs.get('locale', '')
 
     def parse_ocr_result(self, result) -> pd.DataFrame:
-        key_value_pairs = result.key_value_pairs
+        key_value_pairs = result['keyValuePairs']
         form_data = []
 
         for pair in key_value_pairs:
-            # get key info
-            page_number = pair.key.bounding_regions[0].page_number
-            key = pair.key.content
-            key_x1, key_y1, key_x2, key_y2, key_x3, key_y3, key_x4, key_y4 = pair.key.bounding_regions[0].polygon
-            key_offset = pair.key.spans[0].offset
-            key_length = pair.key.spans[0].length
-            
-            # get value info
-            value = pair.get('value', None)
-            value_x1 = value_y1 = value_x2 = value_y2 = value_x3 = value_y3 = value_x4 = value_y4 = None
-            value_offset = value_length = None
+            page_number = pair['key']['boundingRegions'][0]['pageNumber']
+            key = pair['key']['content']
+            key_x1, key_y1, key_x2, key_y2, key_x3, key_y3, key_x4, key_y4 = pair['key']['boundingRegions'][0]['polygon']
+            key_offset = pair['key']['spans'][0]['offset']
+            key_length = pair['key']['spans'][0]['length']
 
-            if value is not None:
-                value = value.get('content', None)
-                value_x1, value_y1, value_x2, value_y2, value_x3, value_y3, value_x4, value_y4 = pair.value.bounding_regions[0].polygon
-                value_offset = pair.value.spans[0].offset
-                value_length = pair.value.spans[0].length
+            try:
+                value = pair['value']['content']
+                value_x1, value_y1, value_x2, value_y2, value_x3, value_y3, value_x4, value_y4 = pair['value']['boundingRegions'][0]['polygon']
+                value_offset = pair['value']['spans'][0]['offset']
+                value_length = pair['value']['spans'][0]['length']
+            except KeyError as e:
+                value_x1 = value_y1 = value_x2 = value_y2 = value_x3 = value_y3 = value_x4 = value_y4 = None
+                value_offset = value_length = None
+                value = None
 
             key_value = {
                 'page_number': page_number,
@@ -435,16 +432,16 @@ class ExtractQuery(OCRStrategy):
     def parse_ocr_result(self, result) -> pd.DataFrame:
         query_data = []
 
-        for doc in result.documents:
+        for doc in result['documents']:
             for query in self.query_fields:
                 if not self.query_exclude_metadata:
-                    x1, y1, x2, y2, x3, y3, x4, y4 = doc.fields.get(query).bounding_regions[0].polygon
+                    x1, y1, x2, y2, x3, y3, x4, y4 = doc['fields'][query]['boundingRegions'][0]['polygon']
                     query_info = {
-                        'page_number': doc.fields.get(query).bounding_regions[0].page_number,
+                        'page_number': doc['fields'][query]['boundingRegions'][0]['pageNumber'],
                         'key': query,
-                        'value': doc.fields.get(query).content,
-                        'confidence': doc.fields.get(query).confidence,
-                        'type': doc.fields.get(query).type,
+                        'value': doc['fields'][query]['content'],
+                        'confidence': doc['fields'][query]['confidence'],
+                        'type': doc['fields'][query]['type'],
                         'x1': x1,
                         'y1': y1,
                         'x2': x2,
@@ -453,14 +450,14 @@ class ExtractQuery(OCRStrategy):
                         'y3': y3,
                         'x4': x4,
                         'y4': y4,
-                        'offset': doc.fields.get(query).spans[0].offset,
-                        'length': doc.fields.get(query).spans[0].length,
+                        'offset': doc['fields'][query]['spans'][0]['offset'],
+                        'length': doc['fields'][query]['spans'][0]['length'],
                     }
                     query_data.append(query_info)
                 else:
                     query_info = {
                         'key': query,
-                        'value': doc.fields.get(query).content,
+                        'value': doc['fields'][query]['content'],
                     }
                     query_data.append(query_info)
 
@@ -509,10 +506,10 @@ class ExtractTable(OCRStrategy):
     def result_to_dfs(self, result) -> list:
         tables = []
         for table in result.tables:
-            table_df = pd.DataFrame(columns=range(table.column_count), index=range(table.row_count))
+            table_df = pd.DataFrame(columns=range(table['columnCount']), index=range(table['rowCount']))
 
-            for cell in table.cells:
-                table_df.iloc[cell.row_index, cell.column_index] = cell.content
+            for cell in table['cells']:
+                table_df.iloc[cell['rowIndex'], cell['columnIndex']] = cell['content']
 
             # use the first row as column names
             table_df.columns = table_df.iloc[0]
@@ -526,7 +523,7 @@ class ExtractTable(OCRStrategy):
         tables = []
 
         # extract all table data
-        for index, table in enumerate(result.tables):
+        for index, table in enumerate(result['tables']):
             if self.table_output_format.upper() == 'MAP':
                 dict = table.as_dict()
                 df = pd.DataFrame.from_dict(dict['cells'])
@@ -547,17 +544,17 @@ class ExtractTable(OCRStrategy):
                 df['y4'] = df['polygon'].apply(lambda x: x[7])
 
                 # extract offset and length
-                df['offset'] = df['spans'].apply(lambda x: int(x[0].get('offset')) if x else None)
-                df['length'] = df['spans'].apply(lambda x: int(x[0].get('length')) if x else None)
+                df['offset'] = df['spans'].apply(lambda x: int(x[0]['offset']) if x else None)
+                df['length'] = df['spans'].apply(lambda x: int(x[0]['length']) if x else None)
 
                 # drop unnecessary columns
                 df.drop(columns=['boundingRegions','spans', 'polygon'], inplace=True)
 
                 table_info = {
                     'table_index': index,
-                    'row_count': table.row_count,
-                    'column_count': table.column_count,
-                    'cell_count': table.row_count*table.column_count,
+                    'row_count': table['rowCount'],
+                    'column_count': table['columnCount'],
+                    'cell_count': table['rowCount']*table['columnCount'],
                     'table': df
                 }
 
@@ -595,7 +592,7 @@ class ExtractTable(OCRStrategy):
                 raise e
             
             table_info.append({
-                'out_library': table_output_library,
+                'out_library': self.table_output_caslib,
                 'table_reference': reference,
                 'row_count': table.shape[0],
                 'column_count': table.shape[1],
@@ -613,7 +610,10 @@ class ExtractTable(OCRStrategy):
                 parsed_result = tables[table_selection_idx]
             elif self.table_selection_method.upper() == 'SIZE': # Table with most cells
                 table_most_cells = max(tables, key=lambda x: x.size, default=None)
-                parsed_result = table_most_cells if table_most_cells else None
+                try:
+                    parsed_result = table_most_cells
+                except:
+                    parsed_result = None
 
             else:
                 raise ValueError(f'Invalid table selection method: {self.table_selection_method}')
@@ -713,7 +713,7 @@ tabel_data = {'file_path': ['data/table-test-document.pdf'],
 url_data = {'file_path': ['https://raw.githubusercontent.com/Azure/azure-sdk-for-python/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms/receipt/contoso-receipt.png'],
             'filename': ['doc1']}
 
-file_list = pd.DataFrame(data)
+file_list = pd.DataFrame(tabel_data)
 path_column = 'file_path'
 
 # create a dataframe with all the file paths of a specified folder not as method yet
