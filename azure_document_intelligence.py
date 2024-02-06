@@ -800,6 +800,8 @@ if ocr_type.upper() == 'QUERY':                         # prepare the query stri
         print(f'ERROR: {e}')
         exit()  
 if input_mode.upper() == 'SINGLE':                      # if input_mode = 'single', create a dataframe with the file path
+    if input_type.upper() == 'URL':                     
+        file_path = file_url
     file_list = pd.DataFrame({'file_path': [file_path]})
     path_column = 'file_path'
 if save_json:                                           # check if output folder should be created (if save_json = True)
