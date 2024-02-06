@@ -3,7 +3,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 
 
 ## ✨ Features
-- ✅ Text Extraction (words / lines / paragraphs / pages)
+- ✅ Text Extraction (words / lines / paragraphs / pages / document)
 - ✅ Form Extraction (key-value pairs)
 - ✅ Query Extraction (extraction of specified keys)
 - ✅ Table Extraction
