@@ -40,6 +40,7 @@ ocr_type = str('text')                          # type of OCR: text, form, query
 input_type = str('file')                        # type of input: file, url 
 input_mode = str('batch')                       # single or batch
 file_path = str('data/table-test-document.pdf') # path to a (single) file
+file_url = str('')
 input_table_name = None                         # name of table containing the file paths
 path_column = str('')                           # column that contains the file path
 locale = str('en')                              # optional, language of the document. Support-list: https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/language-support-ocr?view=doc-intel-4.0.0&tabs=read-hand%2Clayout-print%2Cgeneral
@@ -55,6 +56,7 @@ json_output_folder = str('output')              # folder to save the json output
 # for text extraction
 text_granularity = str('line')               # level of detail: word, line, paragraph, page, document
 model_id = str('prebuilt-layout')                # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
+extract_pragraph_roles = bool(0)
 
 # for query extraction
 query_fields = str("City, First name")          # string containing comma separated keys to extract
