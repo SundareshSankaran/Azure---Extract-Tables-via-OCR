@@ -48,7 +48,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
     <th>Image<sup>1</sup></th>
     <th style="border-right: 1px solid #FFF;">URL</th>
     <th>Azure<sup>2</sup></th>
-    <th>Local Container<sup>3</sup></th>
+    <th>Local Container<sup>3</sup><sup>,4</sup></th>
   </tr>
   <tr>
     <td>Text</td>
@@ -86,7 +86,8 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 
 $^1$ JPEG/JPG, PNG, BMP, TIFF, HEIF
 | $^2$ API-Version `2023-10-31-preview` (4.0) 
-| $^3$ API-Version `2022-08-31` (3.0)
+| $^3$ API-Version `2022-08-31` (3.0) <br>
+$^4$ Only support `General Document` Model / Container
 
 ### Test data
 - [Sample forms on Github](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms)
