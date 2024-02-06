@@ -505,7 +505,7 @@ class ExtractTable(OCRStrategy):
 
     def result_to_dfs(self, result) -> list:
         tables = []
-        for table in result.tables:
+        for table in result['tables']:
             table_df = pd.DataFrame(columns=range(table['columnCount']), index=range(table['rowCount']))
 
             for cell in table['cells']:
@@ -525,8 +525,11 @@ class ExtractTable(OCRStrategy):
         # extract all table data
         for index, table in enumerate(result['tables']):
             if self.table_output_format.upper() == 'MAP':
-                dict = table.as_dict()
-                df = pd.DataFrame.from_dict(dict['cells'])
+
+                if not isinstance(table, dict):
+                    table = table.as_dict()
+
+                df = pd.DataFrame.from_dict(table['cells'])
 
                 # extract page_number and polygon coordinates
                 df['page'] = df['boundingRegions'].apply(lambda x: x[0]['pageNumber'])

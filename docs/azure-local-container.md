@@ -31,7 +31,7 @@ This guide provides detailed steps on how to install a local Azure Document Inte
 > WARNING: Do not share your keys and store them securely.
 
 Create a `docker-compose.yml` file and paste the example code below. Don't forget to replace `{FORM_RECOGNIZER_ENDPOINT_URI}` and `{FORM_RECOGNIZER_KEY}` values for your Layout container instance.\
-This code is a docker compose example to run the Document Intelligence **Layout container**. **For other examples [click here!](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/containers/install-run?view=doc-intel-3.0.0&preserve-view=true&tabs=read#run-the-container-with-the-docker-compose-up-command)**
+This code is a docker compose example to run the Document Intelligence **Read container**. **For other examples [click here!](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/containers/install-run?view=doc-intel-3.0.0&preserve-view=true&tabs=read#run-the-container-with-the-docker-compose-up-command)**
 ```yml
 version: "3.9"
 services:
