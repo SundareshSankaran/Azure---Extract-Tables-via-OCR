@@ -8,6 +8,7 @@ try:
     import pandas as pd
     import numpy as np
     import functools
+    import requests
     import threading
     import json
     import io
@@ -35,7 +36,7 @@ SERVICE_VERSION = '4.0'                         # 4.0 is in preview. Local conta
 API_VERSION = '2023-10-31-preview'              # default: '2023-10-31-preview'- to lock the API version, in case breaking change are introduced
 
 # general
-ocr_type = str('table')                          # type of OCR: text, form, query, tabel
+ocr_type = str('query')                          # type of OCR: text, form, query, table
 input_type = str('file')                        # type of input: file, url 
 input_mode = str('batch')                       # single or batch
 file_path = str('data/table-test-document.pdf') # path to a (single) file
@@ -52,7 +53,7 @@ save_json = bool(False)                         # whether to save the json outpu
 json_output_folder = str('output')              # folder to save the json output
 
 # for text extraction
-text_granularity = str('paragraph')               # level of detail: word, line, paragraph, page, document
+text_granularity = str('line')               # level of detail: word, line, paragraph, page, document
 model_id = str('prebuilt-layout')                # Has cost implications. Layout more expensive but allows for more features: prebuilt-read, prebuilt-layout
 
 # for query extraction
@@ -60,7 +61,7 @@ query_fields = str("City, First name")          # string containing comma separa
 query_exclude_metadata = bool(True)             # if excluded, the resulting table will contain a column per query field (doesn't support ocr metadata like bounding boxes)
 
 # for table extraction
-table_output_format = str('reference')                # how the tables should be returned: map, reference*, table** *reference requires a cas
+table_output_format = str('table')                # how the tables should be returned: map, reference*, table** *reference requires a cas
 table_output_library = str('work')              # caslib to store the table (only relevant if table_output_format = 'reference')
 select_table = bool(False)                      # whether to select a specific table or all tables (only relevant if table_output_format = 'reference')
 table_selection_method = str('index')           # how to select the table: size, index (only relevant if table_output_format = 'reference' and selected_table = True)
@@ -166,11 +167,15 @@ class OCRStrategy:
 class ExtractText(OCRStrategy): 
     def __init__(self, ocr_client, kwargs):
         self.ocr_client = ocr_client
+        self.local_ocr = kwargs.get('local_ocr', False)
         self.input_type = kwargs.get('input_type', 'file')
         self.text_granularity = kwargs.get('text_granularity', 'line')
         self.file_location = kwargs.get('file_location', 'local')
         self.locale = kwargs.get('locale', '')
         self.model_id = kwargs.get('model_id', 'prebuilt-read')
+
+        if self.local_ocr:
+            self.endpoint = kwargs.get('endpoint', 'http://localhost:5000')
 
     def parse_ocr_result(self,result) -> pd.DataFrame:
         parsed_result = pd.DataFrame()
@@ -322,29 +327,42 @@ class ExtractText(OCRStrategy):
         parsed_result:
             pd.DataFrame: OCR results
          """
-        if self.input_type.upper() == 'FILE':
-            poller = self.ocr_client.begin_analyze_document(model_id = self.model_id, 
-                                                            analyze_request = document,
-                                                            content_type="application/octet-stream",
-                                                            locale = self.locale
-                                                            )
-        elif self.input_type.upper() == 'URL':
-            poller = self.ocr_client.begin_analyze_document(model_id = self.model_id, 
-                                                            analyze_request = AnalyzeDocumentRequest(url_source=document),
-                                                            locale = self.locale
-                                                            )
-        
-        
-        result = poller.result()
-        
+        if not self.local_ocr:
+            if self.input_type.upper() == 'FILE':
+                poller = self.ocr_client.begin_analyze_document(model_id = self.model_id, 
+                                                                analyze_request = document,
+                                                                content_type="application/octet-stream",
+                                                                locale = self.locale
+                                                                )
+            elif self.input_type.upper() == 'URL':
+                poller = self.ocr_client.begin_analyze_document(model_id = self.model_id, 
+                                                                analyze_request = AnalyzeDocumentRequest(url_source=document),
+                                                                locale = self.locale
+                                                                )
+            
+            result = poller.result()
+        else:
+            url = f"{self.endpoint}/formrecognizer/documentModels/prebuilt-read:syncAnalyze?api-version=2022-08-31"
+            headers = {
+                'accept': '*/*',
+                'Content-Type': 'application/octet-stream',
+            }
+            response = requests.post(url, headers=headers, data=document)
+            response_json = json.loads(response.text)
+            result = response_json['analyzeResult']
+
         return result
 
 class ExtractForm(OCRStrategy):
     def __init__(self, ocr_client, kwargs):
         self.ocr_client = ocr_client
+        self.local_ocr = kwargs.get('local_ocr', False)
         self.input_type = kwargs.get('input_type', 'file')
         self.file_location = kwargs.get('file_location', 'local')
         self.locale = kwargs.get('locale', '')
+
+        if self.local_ocr:
+            self.endpoint = kwargs.get('endpoint', 'http://localhost:5000')
 
     def parse_ocr_result(self, result) -> pd.DataFrame:
         key_value_pairs = result['keyValuePairs']
@@ -402,21 +420,32 @@ class ExtractForm(OCRStrategy):
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
     def analyze_document(self, document) -> AnalyzeResult:
         
-        if self.input_type.upper() == 'FILE':
-            poller = self.ocr_client.begin_analyze_document( model_id = "prebuilt-layout", 
-                                                        analyze_request = document,
-                                                        content_type="application/octet-stream",
-                                                        locale = self.locale,
-                                                        features=['keyValuePairs']
-                                                        )
-        
-        elif self.input_type.upper() == 'URL':
-            poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
-                                                            analyze_request = AnalyzeDocumentRequest(url_source=document),
+        if not local_ocr:
+            if self.input_type.upper() == 'FILE':
+                poller = self.ocr_client.begin_analyze_document( model_id = "prebuilt-layout", 
+                                                            analyze_request = document,
+                                                            content_type="application/octet-stream",
                                                             locale = self.locale,
                                                             features=['keyValuePairs']
                                                             )
-        result = poller.result()
+            
+            elif self.input_type.upper() == 'URL':
+                poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+                                                                analyze_request = AnalyzeDocumentRequest(url_source=document),
+                                                                locale = self.locale,
+                                                                features=['keyValuePairs']
+                                                                )
+            
+            result = poller.result()
+        else:
+            url = f"{self.endpoint}/formrecognizer/documentModels/prebuilt-document:syncAnalyze?api-version=2022-08-31"
+            headers = {
+                'accept': '*/*',
+                'Content-Type': 'application/octet-stream',
+            }
+            response = requests.post(url, headers=headers, data=document)
+            response_json = json.loads(response.text)
+            result = response_json['analyzeResult']
         
         return result
 
@@ -494,6 +523,7 @@ class ExtractQuery(OCRStrategy):
 class ExtractTable(OCRStrategy):
     def __init__(self, ocr_client, kwargs): 
         self.ocr_client = ocr_client
+        self.local_ocr = kwargs.get('local_ocr', False)
         self.input_type = kwargs.get('input_type', 'file')
         self.file_location = kwargs.get('file_location', 'local')
         self.locale = kwargs.get('locale', '')
@@ -502,6 +532,9 @@ class ExtractTable(OCRStrategy):
         self.table_selection_method = kwargs.get('table_selection_method', 'index')
         self.table_selection_idx = kwargs.get('table_selection_idx', 0)
         self.table_output_caslib = kwargs.get('table_output_caslib', 'work')
+
+        if self.local_ocr:
+            self.endpoint = kwargs.get('endpoint', 'http://localhost:5000')
 
     def result_to_dfs(self, result) -> list:
         tables = []
@@ -639,20 +672,32 @@ class ExtractTable(OCRStrategy):
 
     @retry_on_endpoint_connection_error(max_retries=n_con_retry, delay=retry_delay)
     def analyze_document(self, document) -> AnalyzeResult:
-        if self.input_type.upper() == 'FILE':
-            poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
-                                                        analyze_request = document,
-                                                        content_type = "application/octet-stream",
-                                                        locale = self.locale,
-                                                        )
-        
-        elif self.input_type.upper() == 'URL':
-            poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
-                                                            analyze_request = AnalyzeDocumentRequest(url_source=document),
-                                                            locale = self.locale
+        if not self.local_ocr:   
+            if self.input_type.upper() == 'FILE':
+                poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+                                                            analyze_request = document,
+                                                            content_type = "application/octet-stream",
+                                                            locale = self.locale,
                                                             )
+            
+            elif self.input_type.upper() == 'URL':
+                poller = self.ocr_client.begin_analyze_document(model_id = "prebuilt-layout", 
+                                                                analyze_request = AnalyzeDocumentRequest(url_source=document),
+                                                                locale = self.locale
+                                                                )
 
-        return poller.result()
+            result = poller.result()      
+        else:
+            url = f"{self.endpoint}/formrecognizer/documentModels/prebuilt-document:syncAnalyze?api-version=2022-08-31"
+            headers = {
+                'accept': '*/*',
+                'Content-Type': 'application/octet-stream',
+            }
+            response = requests.post(url, headers=headers, data=document)
+            response_json = json.loads(response.text)
+            result = response_json['analyzeResult']
+        
+        return result
 
 # class that processes the OCR
 class OCRProcessor:
@@ -716,7 +761,7 @@ tabel_data = {'file_path': ['data/table-test-document.pdf'],
 url_data = {'file_path': ['https://raw.githubusercontent.com/Azure/azure-sdk-for-python/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms/receipt/contoso-receipt.png'],
             'filename': ['doc1']}
 
-file_list = pd.DataFrame(tabel_data)
+file_list = pd.DataFrame(form_data)
 path_column = 'file_path'
 
 # create a dataframe with all the file paths of a specified folder not as method yet
@@ -769,7 +814,19 @@ if save_json:                                           # check if output folder
     if not os.access(json_output_folder, os.W_OK):
         raise OSError(f'OSError - Output folder {json_output_folder} is not writable!')
         exit()
-
+if local_ocr:                                           # check if local ocr container is running and reachable
+    for check in ['status', 'ready', 'containerliveness']:
+        url = f'{local_ocr_endpoint}/{check}'
+        headers = {
+            'accept': '*/*',
+        }
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            raise ValueError(f'Local OCR Container is not running or cant be reached! {check}: {response.status_code}')
+            exit()
+    
+    print('Local OCR Container is running!')
+                                                                           
 ###################### PRE-CHECKS ######################
 if input_mode.upper() == 'SINGLE':                                      # When input type is 'file' check if the file is located on the server not SAS Content
 	try:
@@ -777,12 +834,17 @@ if input_mode.upper() == 'SINGLE':                                      # When i
 	except Exception as e:
 		#SAS.logMessage("Please select a valid path. Files have to be located on SAS Server (not SAS Content)!", 'error')
 		exit()
-if table_output_format.upper() == 'TABLE' and file_list.shape[0] > 1:   # if table_output_format = 'table', check if only one row in the file_list
+if ocr_type.upper() == 'TABLE' and table_output_format.upper() == 'TABLE' and file_list.shape[0] > 1:   # if table_output_format = 'table', check if only one row in the file_list
     raise ValueError('Only one file is supported if table_output_format = "table"!')
     exit()
 if input_mode.upper() == 'BATCH' and file_list.shape[0] < 1:            # if input_mode = 'batch' and input_type = 'file', check if the file list is not empty
     raise ValueError('Provided file list is empty!')
     exit()
+if local_ocr:
+    if ocr_type.upper() == 'QUERY':
+        raise ValueError('Local OCR does not support query extraction!')
+        # SAS.logMessage('Local OCR Container does not support query extraction!', 'error')
+        exit()
 
 ###################### EXECUTION ######################
 # define all possible parameters for the OCR
@@ -790,6 +852,7 @@ ocr_params = {
               # general
               'locale': locale,
               'input_type': input_type,
+              'local_ocr': local_ocr,
               # for text extraction
               'text_granularity': text_granularity,
               'model_id': model_id,
@@ -809,10 +872,13 @@ ocr_results = pd.DataFrame()
 status = pd.DataFrame()
 
 # initiate the OCR client and processor
-ocr_client = DocumentIntelligenceClient(endpoint = azure_endpoint, 
+if not local_ocr:
+    ocr_client = DocumentIntelligenceClient(endpoint = azure_endpoint, 
                                         credential = AzureKeyCredential(azure_key),
                                         api_version = API_VERSION
                                         )
+else:
+    ocr_client = {'endpoint': local_ocr_endpoint}
 
 ocr_processor = OCRProcessor(ocr_client = ocr_client, 
                              ocr_type = ocr_type, 
@@ -848,7 +914,6 @@ def process_files(file_list, ocr_processor, path_column):
                 document = io.BytesIO(document.read())
         elif input_type.upper() == 'URL':
             document = row[path_column]
-
         else:
             raise ValueError(f'Invalid input type: {input_type}!')
         
@@ -856,27 +921,30 @@ def process_files(file_list, ocr_processor, path_column):
             # run ocr processing on the document
             result = ocr_processor.analyze_document(document = document)
 
-            # parse the ocr result to a dataframe
+            # parse the ocr result
             parsed_result = ocr_processor.parse_ocr_result(result = result)
 
-            # append results to the dataframe
+            # add the file path to the result
+            if not parsed_result.empty:
+                parsed_result[path_column] = row[path_column]
+
+            # append result to the overall result table
             if not parsed_result.empty:
                 ocr_results = pd.concat([ocr_results, parsed_result], ignore_index=True)
-                ocr_results[path_column]=row[path_column]
                 n_rows = parsed_result.shape[0]
 
             done = True
+
         except Exception as e:
             error_type = type(e).__name__
             message = str(e)
             print(f'Warning: {error_type} - {message} - for {row[path_column]}')
         
         # Post processing
-        if table_output_format.upper() == 'TABLE': # if output_table_format = 'table', drop the path_column
+        if ocr_type.upper() == 'TABLE' and table_output_format.upper() == 'TABLE': # if output_table_format = 'table', drop the path_column
             ocr_results.drop(columns=[path_column], inplace=True)
 
         if save_json: # if save_json = True, save the azure ocr result as json
-            # save the result as json
             try: 
                 with open(f'{json_output_folder}/{row[path_column].split("/")[-1].split(".")[0]}_{ocr_type}.json', 'w') as f:
                     json.dump(result.as_dict(), f)
