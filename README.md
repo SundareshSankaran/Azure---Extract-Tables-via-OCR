@@ -103,11 +103,9 @@ $^4$ Only supports `General Document` Model / Container
 Tested on SAS Viya version Stable 2024.1
 
 ### 🐍 Python
-- [Python 3.8](https://www.python.org/downloads/) (or higher)
+- [Python 3](https://www.python.org/downloads/)
 
 ### 📦 Packages
-- [azure.ai.documentintelligence](https://pypi.org/project/azure-ai-documentintelligence/)
-- [azure.core](https://pypi.org/project/azure-core/)
 - [numpy](https://pypi.org/project/numpy/)
 - [pandas](https://pypi.org/project/pandas/)
 
