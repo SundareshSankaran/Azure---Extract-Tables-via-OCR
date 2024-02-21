@@ -29,10 +29,10 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 * ### Azure Settings tab ###
 ![](img/flow-azure-settings.PNG)
 
-* ### Azure Settings tab ###
+* ### Azure connection tab ###
   ![](img/flow-azure-settings.PNG)
 
-* ### Advanced Settings tab ###
+* ### Advanced settings tab ###
   ![](img/flow-advanced-settings.PNG)
 
 * ### About tab ###
