@@ -8,8 +8,6 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 - ✅ Query Extraction (extraction of specified keys)
 - ✅ Table Extraction
 - ✅ Local Container Support
-- ✅ Parallel Execution (threading)
-
 ## 📖 Contents
 - [💻 User Interface](#user-interface)
 - [👩‍💻 Usage](#usage)
