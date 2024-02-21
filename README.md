@@ -21,7 +21,22 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 <a name="user-interface"/>
 
 ## 💻 User Interface
-[TODO]
+* ### Settings tab ###
+   | Standalone mode | Flow mode |
+   | --- | --- |                  
+   | ![](img/standalone-settings.PNG) | ![](img/flow-settings.PNG) |
+
+* ### Azure Settings tab ###
+   ![](img/flow-azure-settings.PNG)
+
+* ### Azure Settings tab ###
+  ![](img/flow-azure-settings.PNG)
+
+* ### Advanced Settings tab ###
+  ![](img/flow-advanced-settings.PNG)
+
+  * ### About tab ###
+  ![](img/flow-about.PNG)
 
 <a name="usage"/>
 
