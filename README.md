@@ -35,7 +35,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 * ### Advanced Settings tab ###
   ![](img/flow-advanced-settings.PNG)
 
-  * ### About tab ###
+* ### About tab ###
   ![](img/flow-about.PNG)
 
 <a name="usage"/>
