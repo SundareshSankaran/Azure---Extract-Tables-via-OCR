@@ -94,13 +94,13 @@ $^4$ Only supports `General Document` Model / Container
 - [Handwritten Form Sample](https://www.nist.gov/image/sd19jpg)
 
 
-> **Pro Tip:** Take a photo with your smarphone, make a screenshot of a document or export a PowerPoint slide as image / PDF.
+> **Pro Tip:** Take a photo with your smartphone, make a screenshot of a document or export a PowerPoint slide as image / PDF.
 
 <a name="requirements"/>
 
 ## 📋 Requirements
 
-Tested on SAS Viya version Stable 2024.1
+Tested on SAS Viya version Stable 2024.01
 
 ### 🐍 Python
 - [Python 3](https://www.python.org/downloads/)
