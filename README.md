@@ -27,8 +27,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
    | ![](img/standalone-settings.PNG) | ![](img/flow-settings.PNG) |
 
 * ### Azure Settings tab ###
-| --- | 
-|![](img/flow-azure-settings.PNG)|
+![](img/flow-azure-settings.PNG)
 
 * ### Azure Settings tab ###
   ![](img/flow-azure-settings.PNG)
