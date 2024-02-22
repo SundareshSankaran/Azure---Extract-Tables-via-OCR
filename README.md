@@ -193,7 +193,6 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 
   ![](img/keys-and-endpoint.png)
 </details>
-<br>
 
 
 ### 🧙‍♂️ Advanced
@@ -201,12 +200,14 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 | Parameter  | Required | Description |
 |---------------------|:----------:|--------------------------------|
 |Force Language| No |Option to force Document Intelligence to use only a specific language for OCR. Note: Languages are detected automatically by default.|
+|Timeout†| No |How many seconds to wait for the OCR process to finish for document before timing out.|
 |Number of Retries| No |How many retries attempts before a document is skipped|
 |Seconds between retries|No| How many seconds between retry attempts|
 |Number of Threads|No|How many Python threads will be used to process all files.|
 |Save as JSON|No|Whether to save the raw output as JSON (one file per document)|
 |Output Folder|No*|Folder for the JSON files.|
 
+† Note: Make sure to set this high enough if your documents are excessively large. <br>
 \* Required if ``Save as JSON`` is set to *true*.
 
 <a name="documentation"/>
