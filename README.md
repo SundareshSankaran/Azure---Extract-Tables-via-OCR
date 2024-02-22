@@ -193,7 +193,6 @@ To use this step the endpoint and key for an Azure Document Intelligence Resourc
 
   ![](img/keys-and-endpoint.png)
 </details>
-<br>
 
 
 ### 🧙‍♂️ Advanced
