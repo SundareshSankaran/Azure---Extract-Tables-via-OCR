@@ -44,7 +44,7 @@ This custom step uses the [Azure AI Document Intelligence](https://azure.microso
 
 ### 📺 Tutorial (👇Click Thumbnail👇)
 [IN PROGRESS]
-[![YOUTUBE THUMBNAIL](<img/thumbnail azure ocr custom step.jpg>)](https://youtu.be/RP0CHuIbVGE)
+[![YOUTUBE THUMBNAIL](<img/thumbnail azure ocr custom step.jpg>)](https://youtu.be/-0GkPfPVKHs)
 
 ### Feature Matrix
 
